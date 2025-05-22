@@ -1,18 +1,46 @@
 import React from 'react'
+import { Container, Box, Typography, TextField, Button } from '@mui/material';
 
 function Home() {
   return (
-    <div id="container" class="home-container">
-        <div class="home-header">
-            <h2>JOIN US</h2>
-        </div>
-        <div class="home-content">
-            <form>
-                <input type="email" placeholder="Enter your email" />
-                <button type="submit">Submit</button>
-            </form>
-        </div>
-    </div>
+    <Box sx={{ display: 'flex', height: '100vh' }}>
+     
+        <Box
+            sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            }}
+        >
+            <Container maxWidth="sm" justifyContent="center">
+                <Typography variant="h2" gutterBottom>
+                    JOIN US
+                </Typography>
+                <TextField
+                    label="Enter your email"
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                />
+                <Button
+                    variant="contained"
+                    sx={{ mt: 2, backgroundColor: '#3CC0F0', '&:hover': { backgroundColor: '#28a6d3' } }}
+                >
+                    Submit
+                </Button>
+            </Container>
+        </Box>
+
+        <Box
+            sx={{
+            flex: 1,
+            backgroundImage: 'url()',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            }}
+        />
+    </Box>
   )
 }
 

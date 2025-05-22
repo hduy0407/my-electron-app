@@ -10,7 +10,7 @@ const createWindow = () => {
     })
     const startURL = isDev
     ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '../pulic/index.html')}`;
+    : `file://${path.join(__dirname, 'index.html')}`;
 
     mainWindow.loadURL(startURL);
 }
