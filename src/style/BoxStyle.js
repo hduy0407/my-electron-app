@@ -11,6 +11,7 @@ const MainBox = styled(Box)`
 const LeftBox = styled(Box)`
     flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
 `;
@@ -33,6 +34,8 @@ const FormContainer = styled(Box)`
     width: 100%;
 `;
 
-export { MainBox, LeftBox, RightBox, FormContainer };
+
+
+export { MainBox, LeftBox, RightBox, FormContainer};
 
 //Styled box for Signin components

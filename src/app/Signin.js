@@ -1,40 +1,61 @@
-import React from "react";
-import { Container, Box, Typography, TextField, Button } from '@mui/material';
+import React from 'react'
+import { Typography, TextField, Button, Avatar } from '@mui/material';
+import { MainBox, RightBox, LeftBox, FormContainer, } from '../style/BoxStyle';
 import { useNavigate } from 'react-router-dom';
 
-const Signin = () => {
+
+function Signin() {
+
     const navigate = useNavigate();
+
     return (
-        <Box sx={{ display: 'flex', height: '100vh' }}>
-            <Box
-                sx={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                }}
-            >
-                <Container maxWidth="sm" justifyContent="center">
-                    <Typography variant="h2" gutterBottom>
-                        SIGN IN
+        <MainBox>
+            <LeftBox>
+                <FormContainer sx={{ mb: 8 }}>
+                    <Typography variant="h5" gutterBottom align='center'>
+                        Chào mừng bạn
+                    </Typography>
+                    <Typography variant="h6" gutterBottom align='center'>
+                        tham gia
+                    </Typography>
+                    <Avatar alt="" />
+                    <Typography variant="h5" gutterBottom align='center'>
+                        Máy chủ Hà Nội
+                    </Typography>
+                </FormContainer>
+                <FormContainer>
+                    <Typography variant="h4" gutterBottom align='center'>
+                        Đăng nhập
                     </Typography>
                     <TextField
-                        label="Pasword"
+                        label="Nhập email của bạn"
                         variant="outlined"
+                        type="email"
                         fullWidth
                         margin="normal"
+                        borderRadius="15px"
+                    />
+                    <TextField
+                        label="Nhập mật khẩu của bạn"
+                        variant="outlined"
+                        type="password"
+                        fullWidth
+                        margin="normal"
+                        borderRadius="15px"
                     />
                     <Button
                         variant="contained"
-                        sx={{ mt: 2, backgroundColor: '#3CC0F0', '&:hover': { backgroundColor: '#28a6d3' } }}
-                        onClick={() => navigate('/')}
+                        sx={{ mt: 2, backgroundColor: '#3CA2F0', '&:hover': { backgroundColor: '#2288D7' }, boxShadow: 'none',  alignSelf: 'center', borderRadius: '15px'}}
+                        onClick={() => navigate('/signup')}
                     >
                         Submit
                     </Button>
-                </Container>
-            </Box>
-        </Box>
-    );
+                </FormContainer>
+            </LeftBox>
+
+            <RightBox />
+        </MainBox>
+    )
 }
 
 export default Signin;
