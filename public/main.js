@@ -1,12 +1,23 @@
-const {app, BrowserWindow} = require('electron')
+const {app, BrowserWindow, ipcMain} = require('electron')
 const path = require('path')
 const isDev = require('electron-is-dev')
+
+const fetch = require('node-fetch');
+const initializeDatabase = require('./database/index.js');
+
+const BASE_URL = process.env.REACT_APP_URL_DB;
+const SECRET_KEY = process.env.REACT_APP_SECRET_KEY; 
 
 const createWindow = () => {
 
     const mainWindow = new BrowserWindow({
         width: 800,
         height: 600,
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+        }
     })
     const startURL = isDev
     ? 'http://localhost:3000'
@@ -16,6 +27,8 @@ const createWindow = () => {
 }
 
 app.whenReady().then(() => {
+    // Set up the local database before creating the window    
+    initializeDatabase();
     createWindow()
 
     app.on('activate', () => {
