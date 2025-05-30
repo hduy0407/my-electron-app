@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { Typography, TextField, Button, Avatar } from '@mui/material';
 import { MainBox, RightBox, LeftBox, FormContainer, } from '../../style/BoxStyle';
 import { useNavigate } from 'react-router-dom';
-import { ipcRenderer } from 'electron';
 
 function Signin() {
 
@@ -16,13 +15,7 @@ function Signin() {
     });
 
     const handleChange = (e) => {
-
-        console.log(
-            {event: e,
-            data
-            }
-        );
-        
+        e.preventDefault();
         setData(preState => ({
             ...preState,
             [e.target.name]: e.target.value
@@ -36,7 +29,7 @@ function Signin() {
         const token = localStorage.getItem("token");
     
         try {
-            const response = await fetch(`${baseUrl}/api/users/login`, {
+            const response = await fetch(`${baseUrl}/api/auth/login`, {
                 method: "POST",
                 headers: { 
                     "Content-Type": "application/json",
@@ -45,14 +38,13 @@ function Signin() {
                 body: JSON.stringify(data),
             });
     
-            const data = await response.json();
+            const resData = await response.json();
     
             if (response.ok) {
-                localStorage.setItem("token", data.token); 
+                localStorage.setItem("token", resData.token); 
 
-                await ipcRenderer.invoke('save-user-login', {
-                    email: data.email,
-                    username: data.username,
+                await window.electron.sendLogin({
+                    email: resData.user.email,
                     password: data.password,
                 });
                 
@@ -111,6 +103,7 @@ function Signin() {
                     />
                     <Button
                         variant="contained"
+                        type='submit'
                         sx={{ mt: 2, backgroundColor: '#3CA2F0', '&:hover': { backgroundColor: '#2288D7' }, boxShadow: 'none',  alignSelf: 'center', borderRadius: '15px'}}>
                         Submit
                     </Button>
