@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Typography, TextField, Button, Avatar } from '@mui/material';
 import { MainBox, RightBox, LeftBox, FormContainer, } from '../../style/BoxStyle';
 import { useNavigate } from 'react-router-dom';
+import { ipcRenderer } from 'electron';
 
 function Signin() {
 
@@ -13,8 +14,6 @@ function Signin() {
         email: '',
         password: ''
     });
-
-    const {email, password} = data;
 
     const handleChange = (e) => {
 
@@ -50,6 +49,12 @@ function Signin() {
     
             if (response.ok) {
                 localStorage.setItem("token", data.token); 
+
+                await ipcRenderer.invoke('save-user-login', {
+                    email: data.email,
+                    username: data.username,
+                    password: data.password,
+                });
                 
                 navigate("/home");
 
@@ -83,7 +88,7 @@ function Signin() {
                         Đăng nhập
                     </Typography>
                     <TextField
-                    name='email'
+                        name='email'
                         label="Nhập email của bạn"
                         variant="outlined"
                         type="email"
@@ -94,7 +99,7 @@ function Signin() {
                         borderRadius="15px"
                     />
                     <TextField
-                    name='password'
+                        name='password'
                         label="Nhập mật khẩu của bạn"
                         variant="outlined"
                         type="password"
