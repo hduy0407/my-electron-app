@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react'
-import { Typography, TextField, Button, Avatar } from '@mui/material';
-import { MainBox, RightBox, LeftBox, FormContainer, } from '../../style/BoxStyle';
+import React, { useState } from 'react'
+import { Typography, TextField, Button, Avatar, Alert } from '@mui/material';
+import { MainBox, RightBox, LeftBox, FormContainer } from '../../style/BoxStyle';
 import { useNavigate } from 'react-router-dom';
+import { requestLogin } from '../../service/remote-service/login.service';
 
 function Signin() {
-
     const navigate = useNavigate();
-
-    const baseUrl = process.env.REACT_APP_URL_DB;
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const [data, setData] = useState({
         email: '',
@@ -15,48 +15,40 @@ function Signin() {
     });
 
     const handleChange = (e) => {
-        e.preventDefault();
-        setData(preState => ({
-            ...preState,
+        setError(''); // Clear error when user types
+        setData(prevState => ({
+            ...prevState,
             [e.target.name]: e.target.value
         }));
     }
 
-
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        setLoading(true);
 
-        const token = localStorage.getItem("token");
-    
         try {
-            const response = await fetch(`${baseUrl}/api/auth/login`, {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(data),
-            });
-    
-            const resData = await response.json();
-    
-            if (response.ok) {
-                localStorage.setItem("token", resData.token); 
+            // Validate inputs
+            if (!data.email || !data.password) {
+                setError('Please fill in all fields');
+                return;
+            }
 
-                await window.electron.sendLogin({
-                    email: resData.user.email,
-                    password: data.password,
-                });
-                
+            console.log('Attempting login with:', data.email); // Debug log
+            const result = await requestLogin(data.email, data.password);
+            console.log('Login result:', result); // Debug log
+
+            if (result?.success) {
+                console.log('Login successful, navigating...'); // Debug log
                 navigate("/home");
-
             } else {
-                console.log("Login failed:", data.message);
-                alert(data.message);
+                setError(result?.error || 'Login failed. Please check your credentials.');
             }
         } catch (error) {
-            console.error("Fetch error:", error);
-            alert("Something went wrong");
+            console.error('Login error:', error);
+            setError('An error occurred during login. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -75,10 +67,17 @@ function Signin() {
                         Máy chủ Hà Nội
                     </Typography>
                 </FormContainer>
-                <FormContainer onSubmit={handleSubmit}>
+                <FormContainer component="form" onSubmit={handleSubmit}>
                     <Typography variant="h4" gutterBottom align='center'>
                         Đăng nhập
                     </Typography>
+                    
+                    {error && (
+                        <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
+                            {error}
+                        </Alert>
+                    )}
+
                     <TextField
                         name='email'
                         label="Nhập email của bạn"
@@ -88,7 +87,9 @@ function Signin() {
                         onChange={handleChange}
                         fullWidth
                         margin="normal"
-                        borderRadius="15px"
+                        required
+                        error={!!error}
+                        disabled={loading}
                     />
                     <TextField
                         name='password'
@@ -99,17 +100,27 @@ function Signin() {
                         onChange={handleChange}
                         fullWidth
                         margin="normal"
-                        borderRadius="15px"
+                        required
+                        error={!!error}
+                        disabled={loading}
                     />
                     <Button
                         variant="contained"
                         type='submit'
-                        sx={{ mt: 2, backgroundColor: '#3CA2F0', '&:hover': { backgroundColor: '#2288D7' }, boxShadow: 'none',  alignSelf: 'center', borderRadius: '15px'}}>
-                        Submit
+                        disabled={loading}
+                        sx={{ 
+                            mt: 2, 
+                            backgroundColor: '#3CA2F0', 
+                            '&:hover': { backgroundColor: '#2288D7' }, 
+                            boxShadow: 'none',  
+                            alignSelf: 'center', 
+                            borderRadius: '15px',
+                            width: '100%'
+                        }}>
+                        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                     </Button>
                 </FormContainer>
             </LeftBox>
-
             <RightBox />
         </MainBox>
     )

@@ -2,8 +2,8 @@ const path = require('path');
 const { app } = require('electron');
 const Database = require('better-sqlite3');
 
-const usersTable = require('./tables/users');
-const postsTable = require('./tables/posts');
+const createUsersTable = require('./tables/users');
+const createPostsTable = require('./tables/posts');
 
 function initializeDatabase() {
     // Check if the database file exists, if not, create it
@@ -13,8 +13,8 @@ function initializeDatabase() {
 
     if (!dbExists) {
         console.log('Creating new database');
-        usersTable(db);
-        postsTable(db);
+        createUsersTable(db);
+        createPostsTable(db);
     } else {
         console.log('Database already exists, skipping creation');
     }
