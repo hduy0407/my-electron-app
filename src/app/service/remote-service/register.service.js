@@ -61,7 +61,7 @@ export const requestRegister = async (email, username, password, navigate) => {
                 LocalUser.setCurrentUser(userData);
             }
 
-            return { success: true, user: userData }; return true;
+            return { success: true, user: userData };
         } else {
             return { 
                 success: false, 

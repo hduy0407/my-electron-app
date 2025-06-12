@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Typography, TextField, Button, Avatar, Alert } from '@mui/material';
 import { MainBox, RightBox, LeftBox, FormContainer } from '../../style/BoxStyle';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { requestLogin } from '../../service/remote-service/login.service';
 
 function Signin() {
@@ -30,7 +30,7 @@ function Signin() {
         try {
             // Validate inputs
             if (!data.email || !data.password) {
-                setError('Please fill in all fields');
+                setError('Vui lòng điền đầy đủ thông tin đăng nhập.');
                 return;
             }
 
@@ -116,9 +116,12 @@ function Signin() {
                             alignSelf: 'center', 
                             borderRadius: '15px',
                             width: '100%'
-                        }}>
+                        }}
+                    >
                         {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
                     </Button>
+
+                    <Typography>Bạn chưa có tài khoản? <Link to="/signup">Đăng ký</Link></Typography>
                 </FormContainer>
             </LeftBox>
             <RightBox />

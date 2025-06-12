@@ -1,16 +1,16 @@
 // Wait for localDatabase to be available
 const getLocalDatabase = () => {
-    if (window.localDatabase) {
-        return {
-            user: window.localDatabase.user,
-        };
+    if (window.localDatabase && window.localDatabase.user) {
+        return window.localDatabase.user;
     }
-    return {
-        user: null,
-    };
+    return null;
 };
 
-export const { user: LocalUser } = getLocalDatabase();
+export const LocalUser = {
+    getCurrentUser: () => {
+        return getLocalDatabase();
+    }
+};
 
 // Helper function to check if LocalUser is available
 export const isLocalUserAvailable = () => {
