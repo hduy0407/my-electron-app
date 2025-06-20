@@ -6,6 +6,9 @@ import { styled } from 'styled-components';
 const MainBox = styled(Box)`
     display: flex;
     height: 100vh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
 `;
 
 const LeftBox = styled(Box)`
@@ -14,15 +17,16 @@ const LeftBox = styled(Box)`
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 20px;
 `;
 
 const RightBox = styled(Box)`
     flex: 2;
-    background-image: url("desktop.jpg");
+    background-image: url("/desktop.jpg");
     background-repeat: no-repeat;
     background-size: cover;
     background-position: center;
-    backgrpund-color: #3CC0F0;
+    background-color: #3CC0F0;
 `;
 
 const FormContainer = styled(Box)`
@@ -32,6 +36,8 @@ const FormContainer = styled(Box)`
     justify-content: center;
     max-width: 400px;
     width: 100%;
+    gap: 16px;
+    padding: 20px;
 `;
 
 
