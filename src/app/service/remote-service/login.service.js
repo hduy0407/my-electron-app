@@ -1,84 +1,92 @@
-import { LocalUser } from "../../service/local.service";
+import { LocalUser, isLocalUserAvailable } from "../../service/local.service";
+import axios from "axios";
 
-const baseUrl = process.env.REACT_APP_BASE_URL || 'http://192.168.2.233:8080';
+const baseUrl = process.env.REACT_APP_BASE_URL || 'http://localhost:8080';
 
 export const requestLogin = async (email, password) => {
     try {
         const apiUrl = `${baseUrl}/api/auth/login`;
         console.log('Attempting login with URL:', apiUrl);
 
-        if (!baseUrl) {
-            console.error('Base URL is not configured. Please check your .env file');
-            return {
-                success: false,
-                error: 'API URL is not configured. Please contact support.'
-            };
-        }
-
         const data = {
             email: email,
             password: password
         };
 
-        console.log('Sending request to:', apiUrl);
-        
-        const response = await fetch(apiUrl, {
-            method: "POST",
+        const response = await axios.post(apiUrl, data,{
             headers: { 
                 "Content-Type": "application/json",
                 "Accept": "application/json"  
-            },
-            body: JSON.stringify(data),
+            }
         });
 
-        // Check if response is JSON
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-            console.error('Received non-JSON response:', contentType);
-            console.error('Response status:', response.status);
-            return {
-                success: false,
-                error: 'Server error: Invalid response format. Is the API server running?'
-            };
-        }
+        console.log('Response data:', response.data);
 
-        const resData = await response.json();
-        console.log('Response data:', resData);
+        const accessToken = response.data.data.accessToken;
 
-        if (response.ok) {
-            localStorage.setItem("token", resData.token); 
-            
-            const userData = {
-                email: email,
-                password: password
-            };
+        if (accessToken) {
+            localStorage.setItem("token", accessToken); 
+            console.log('Login successful, token stored:', accessToken);
 
-            if (LocalUser?.setCurrentUser) {
-                LocalUser.setCurrentUser(userData);
+            const user = response?.data?.data?.user;
+
+            if (!user || !user.username) {
+                console.error('Invalid response structure: user or username is missing', response.data);
+                return { success: false, error: 'Invalid server response: user info missing' };
             }
 
-            return { success: true, user: userData };
+            const userData = {
+                id: response.data.data.user.id,
+                username: response.data.data.user.username,
+                email: email,
+                full_name: response.data.data.user.fullName,
+                date_of_birth: response.data.data.user.dateOfBirth,
+                gender: response.data.data.gender
+            };
+
+            console.log('User data to save:', userData);
+
+            let saveResult = { success: false, error: "LocalUser not available" };
+            let verifyResult = null;
+
+            if (isLocalUserAvailable()) {
+                console.log("userData before saveUser:", userData);
+                saveResult = await LocalUser.saveUser(userData);
+                console.log("LocalUser.saveUser result:", saveResult);
+                if (saveResult.success) {
+                    verifyResult = await LocalUser.getCurrentUser();
+                    console.log("Verified local user after save:", verifyResult);
+                } else {
+                    console.warn("Skipping verification due to failed save.");
+                }
+
+            } else {
+                console.warn("LocalUser is not available, skipping local save.");
+            }
+
+            return { 
+                success: true, 
+                user: userData,
+                localSave: saveResult,
+                localerify: verifyResult
+            };
+           
         } else {
             return { 
                 success: false, 
-                error: resData.message || 'Login failed' 
+                error: 'No access token received' 
             };
         }
     } catch (error) {
         console.error("Login error:", error);
-        
-        // Provide more specific error messages
-        if (error.message.includes('<!DOCTYPE')) {
-            return {
-                success: false,
-                error: 'Cannot connect to API server. Please ensure the backend server is running.'
-            };
+
+        if (error.response && error.response.data && error.response.data.message) {
+            return { success: false, error: error.response.data.message };
         }
-        
+
         return { 
             success: false, 
             error: 'Network or server error. Please check your connection and try again.' 
         };
     }
-}
-
+};

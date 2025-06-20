@@ -1,37 +1,38 @@
-const {contextBridge, ipcRenderer} = require('electron');
-const { verify } = require('jsonwebtoken');
+const { contextBridge, ipcRenderer } = require('electron');
 
-// User state management
 let currentUser = null;
 
 contextBridge.exposeInMainWorld('localDatabase', {
-    // User authentication and state management
-    user: {
-        ...require('./database/tables/users.js'),
-        
-        setCurrentUser: (user) => {
-            currentUser = user;
-        },
-        getCurrentUser: () => {
-            return currentUser;
-        },
-        clearCurrentUser: () => {
-            currentUser = null;
-        },
-        isLoggedIn: () => {
-            return currentUser !== null;
-        },
-        getDisplayName: () => {
-            return currentUser ? (currentUser.username || currentUser.email) : null;
-        }
+  user: {
+    saveUser: async (userData) => {
+      const result = await ipcRenderer.invoke('user:saveUser', userData);
+      if (result.success) {
+        currentUser = userData;
+      }
+      return result;
     },
-
-    // System events
-    onError: (callback) => {
-        ipcRenderer.on('error', callback);
+    getCurrentUser: async (email) => {
+      if (currentUser) {
+        return currentUser;
+      }
+      const result = await ipcRenderer.invoke('user:getCurrentUser', email);
+      if (result.success) {
+        currentUser = result.user;
+        return currentUser;
+      }
+      return null;
     },
-    removeErrorListener: (callback) => {
-        ipcRenderer.removeListener('error', callback);
+    setCurrentUser: (userData) => {
+      currentUser = userData;
+    },
+    logOut: () => {
+      currentUser = null;
     }
+  },
+  onError: (callback) => {
+    ipcRenderer.on('error', callback);
+  },
+  removeErrorListener: (callback) => {
+    ipcRenderer.removeListener('error', callback);
+  }
 });
-

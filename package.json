@@ -12,6 +12,7 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.10.0",
     "better-sqlite3": "^11.10.0",
     "fs": "^0.0.1-security",
     "node-fetch": "^3.3.2",
