@@ -1,13 +1,23 @@
-const {app, BrowserWindow} = require('electron')
+const {app, BrowserWindow, ipcMain} = require('electron')
 const path = require('path')
 const isDev = require('electron-is-dev')
 
-const createWindow = () => {
+const initializeDatabase = require('./database/index.js');
+const userIpcHandler = require('./ipc-handler/user.js');
+const groupsIpcHandler = require('./ipc-handler/groups.js');
 
+const createWindow = () => {
+    console.log('preload path:', path.join(__dirname, 'preload.js'));
     const mainWindow = new BrowserWindow({
         width: 800,
         height: 600,
+        webPreferences:{
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: true,
+        }
     })
+
     const startURL = isDev
     ? 'http://localhost:3000'
     : `file://${path.join(__dirname, 'index.html')}`;
@@ -16,7 +26,13 @@ const createWindow = () => {
 }
 
 app.whenReady().then(() => {
+    // Set up the local database before creating the window    
+    app.db = initializeDatabase();
+
     createWindow()
+    // Set up IPC handlers
+    userIpcHandler(ipcMain, app);
+    groupsIpcHandler(ipcMain, app);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -26,3 +42,5 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
 })  
+
+ 
