@@ -3,6 +3,10 @@ const getLocalDatabaseUser = () => {
     return window.localDatabase?.user || null;
 };
 
+const getLocalDatabaseGroups = () => {
+    return window.localDatabase?.groups || null;
+};
+
 // LocalUser middleware API
 export const LocalUser = {
     getCurrentUser: () => {
@@ -34,6 +38,41 @@ export const LocalUser = {
             return dbUser.setCurrentUser(userData);
         }
         return { success: false, error: 'setCurrentUser not available' };
+    },
+
+    clearCurrentUser: () => {
+        const dbUser = getLocalDatabaseUser();
+        if (dbUser && typeof dbUser.logOut === 'function') {
+            dbUser.logOut();
+            localStorage.removeItem("currentUserEmail");
+            console.log('Current user cleared');
+            return { success: true };
+        }
+        return { success: false, error: 'logOut not available' };
+    }
+};
+
+export const LocalGroups = {
+    saveGroup: async (groupData) => {
+        const dbGroups = getLocalDatabaseGroups();
+        if (dbGroups && typeof dbGroups.saveGroup === 'function') {
+            const saveResult = await dbGroups.saveGroup(groupData);
+            if (saveResult.success) {
+                console.log('Group saved successfully:', groupData);
+            } else {
+                console.warn('Group save failed:', saveResult.error);
+            }
+            return { ...saveResult, group: groupData };
+        }
+        return { success: false, error: 'localDatabase.groups not available' };
+    },
+
+    getGroups: async () => {
+        const dbGroups = getLocalDatabaseGroups();
+        if (dbGroups && typeof dbGroups.getGroups === 'function') {
+            return await dbGroups.getGroups();
+        }
+        return { success: false, error: 'localDatabase.groups not available' };
     }
 };
 

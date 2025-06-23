@@ -95,23 +95,14 @@ const getCurrentUser = (db, email) => {
     }
 };
 
-const getUsers = (db) => {
+const getUserByUsername = (db, username) => {
     try {
-        const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-        const user = stmt.get(email);
-        if (user) {
-            return { success: true, user };
-        } else {
-            return { success: false, error: 'User not found' };
-        }
+        const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        return user || null;
     } catch (error) {
-        console.error('Error retrieving user login:', error);
-        return { success: false, error: error.message };
+        console.error('Error retrieving user by username:', error);
+        return null;
     }
 }
 
-const getUserByUsername = (db, username) => {
-    return db.prepare(`SELECT * FROM users WHERE username = ?`).get(username);
-}
-
-module.exports = {createUsersTable, saveUser, getUsers, getUserByUsername, getCurrentUser};
+module.exports = {createUsersTable, saveUser, getUserByUsername, getCurrentUser};

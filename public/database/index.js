@@ -4,6 +4,7 @@ const Database = require('better-sqlite3');
 
 const {createUsersTable} = require('./tables/users');
 const {createPostsTable} = require('./tables/posts');
+const {createGroupsTable} = require('./tables/groups');
 
 function initializeDatabase() {
     // Check if the database file exists, if not, create it
@@ -15,6 +16,8 @@ function initializeDatabase() {
         console.log('Creating new database');
         createUsersTable(db);
         createPostsTable(db);
+        createGroupsTable(db);
+        console.log('Database created and tables initialized');
     } else {
         console.log('Database already exists, skipping creation');
     }

@@ -1,7 +1,8 @@
 import { LocalUser, isLocalUserAvailable } from "../../service/local.service";
 import axios from "axios";
+import { fetchAndSaveGroups } from "../../service/remote-service/group.service";
 
-const baseUrl = process.env.REACT_APP_BASE_URL || 'http://localhost:8080';
+const baseUrl = process.env.REACT_APP_URL_DB || 'http://localhost:8080';
 
 export const requestLogin = async (email, password) => {
     try {
@@ -64,11 +65,14 @@ export const requestLogin = async (email, password) => {
                 console.warn("LocalUser is not available, skipping local save.");
             }
 
+            const groupResult = await fetchAndSaveGroups();
+
             return { 
                 success: true, 
                 user: userData,
                 localSave: saveResult,
-                localerify: verifyResult
+                localVerify: verifyResult,
+                groupSave: groupResult
             };
            
         } else {

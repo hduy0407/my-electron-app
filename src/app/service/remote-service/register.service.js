@@ -1,7 +1,7 @@
 
 import { LocalUser } from "../../service/local.service";
 
-const baseUrl = process.env.REACT_APP_BASE_URL || 'http://192.168.2.233:8080';
+const baseUrl = process.env.REACT_APP_URL_DB || 'http://localhost:8080';
 
 export const requestRegister = async (email, username, password, navigate) => {
     

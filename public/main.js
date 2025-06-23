@@ -3,7 +3,8 @@ const path = require('path')
 const isDev = require('electron-is-dev')
 
 const initializeDatabase = require('./database/index.js');
-const userTable = require('./database/tables/users.js');
+const userIpcHandler = require('./ipc-handler/user.js');
+const groupsIpcHandler = require('./ipc-handler/groups.js');
 
 const createWindow = () => {
     console.log('preload path:', path.join(__dirname, 'preload.js'));
@@ -29,18 +30,9 @@ app.whenReady().then(() => {
     app.db = initializeDatabase();
 
     createWindow()
-
-    ipcMain.handle('user:saveUser', (event, userData) => {
-        const db = app.db;
-        return userTable.saveUser(db, userData);
-    });
-
-    ipcMain.handle('user:getCurrentUser', (event, email) => {
-        const db = app.db;
-        return userTable.getCurrentUser(db, { email });   
-    });
-    
-    
+    // Set up IPC handlers
+    userIpcHandler(ipcMain, app);
+    groupsIpcHandler(ipcMain, app);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow()

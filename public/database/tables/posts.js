@@ -1,5 +1,5 @@
-const createPostsTable = (newDb) => {
-    newDb.prepare(`CREATE TABLE IF NOT EXISTS posts (
+const createPostsTable = (db) => {
+    db.prepare(`CREATE TABLE IF NOT EXISTS posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -9,16 +9,16 @@ const createPostsTable = (newDb) => {
     ).run();
 }
 
-const postPost = (newDb, postData) => {
+const postPost = (db, postData) => {
     newDb.prepare(`INSERT INTO posts (user_id, content) VALUES (?, ?)`)
         .run(postData);
 }
 
-const getPosts = (newDb) => {
+const getPosts = (db) => {
     return newDb.prepare(`SELECT * FROM posts`).all();
 }
 
-const getPostById = (newDb, postId) => {
+const getPostById = (db, postId) => {
     return newDb.prepare(`SELECT * FROM posts WHERE id = ?`).get(postId);
 }
 

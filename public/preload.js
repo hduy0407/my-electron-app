@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+const { saveGroup } = require('./database/tables/groups');
 
 let currentUser = null;
 
@@ -27,6 +28,15 @@ contextBridge.exposeInMainWorld('localDatabase', {
     },
     logOut: () => {
       currentUser = null;
+    }
+  },
+  groups: {
+    // Placeholder for groups functionality
+    saveGroup: async (groupData) => {
+      return await ipcRenderer.invoke('groups:saveGroup', groupData);
+    },
+    getGroups: async () => {
+      return await ipcRenderer.invoke('groups:getGroups');
     }
   },
   onError: (callback) => {
