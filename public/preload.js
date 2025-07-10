@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const { saveGroup } = require('./database/tables/groups');
-const { clearAllGroupUsers } = require('./database/tables/groupUsers');
+const { saveGroup, deleteGroupById } = require('./database/tables/groups');
+const { clearAllGroupUsers, deleteUserFromGroup } = require('./database/tables/groupUsers');
 const { clearAllPosts } = require('./database/tables/posts');
 
 let currentUser = null;
@@ -45,7 +45,11 @@ contextBridge.exposeInMainWorld('localDatabase', {
     },
     clearAllGroups: async () => {
       return await ipcRenderer.invoke('groups:clearAllGroups');
+    },
+    deleteGroupById: async (groupId) => {
+      return await ipcRenderer.invoke('groups:deleteGroupById', groupId);
     }
+
   },
   groupUsers: {
     saveGroupUsers: async (groupUsersData) => {
@@ -55,8 +59,11 @@ contextBridge.exposeInMainWorld('localDatabase', {
       return await ipcRenderer.invoke('groupUsers:getGroupUsersByGroupId', groupId);
     },
     clearAllGroupUsers: async () => {
-    return await ipcRenderer.invoke('groupUsers:clearAllGroupUsers');
-  }
+      return await ipcRenderer.invoke('groupUsers:clearAllGroupUsers');
+    },
+    deleteUserFromGroup: async (groupId, userId) => {
+      return await ipcRenderer.invoke('groupUsers:deleteUserFromGroup', groupId, userId)
+    }
   },
   posts:{
     savePost: async (postData) => {

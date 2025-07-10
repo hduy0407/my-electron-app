@@ -1,4 +1,3 @@
-
 const getLocalDatabaseUser = () => {
     return window.localDatabase?.users || null;
 };
@@ -116,8 +115,14 @@ export const LocalGroups = {
             return await dbGroups.clearAllGroups();
         }
         return { success: false, error: 'clearAllGroups not available' };
+    },
+    deleteGroupById: async (groupId) => {
+        const dbGroups = getLocalDatabaseGroups();
+        if (dbGroups && typeof dbGroups.deleteGroupById === 'function') {
+            return await dbGroups.deleteGroupById(groupId);
+        }
+        return { success: false, error: 'deleteGroupById not available' };
     }
-
 };
 
 export const LocalPosts = {
@@ -194,6 +199,16 @@ export const LocalGroupUsers = {
         }
         return { success: false, error: 'getGroupUsersByGroupId not available' };
     },
+    deleteUserFromGroup: async (groupId, userId) => {
+        const dbGroupUsers = getLocalDatabaseGroupUsers();
+        if (
+            dbGroupUsers &&
+            typeof dbGroupUsers.deleteUserFromGroup === 'function'
+        ) {
+            return await dbGroupUsers.deleteUserFromGroup(groupId, userId);
+        }
+        return { success: false, error: 'deleteUserFromGroup not available' };
+    }
 }
 
 // Availability checker

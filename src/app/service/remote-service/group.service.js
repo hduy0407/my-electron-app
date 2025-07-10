@@ -121,3 +121,37 @@ export const updateGroup = async (groupId, groupData) => {
         };
     }
 }
+
+export const deleteGroup = async (groupId) => {
+    try {
+        const response = await axios.delete(`${baseUrl}/api/groups/${groupId}`, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        const result = response.data;
+        console.log("API response for deleting group:", result);
+
+        // Optionally: also delete from local DB
+        const localDeleteResult = await LocalGroups.deleteGroupById(groupId);
+        console.log('Deleted group from local DB:', localDeleteResult);
+
+        const updatedGroups = await LocalGroups.getGroups();
+
+        return {
+            success: true,
+            message: result.message || 'Group deleted successfully',
+            localDeleteResult,
+            updatedGroups
+        };
+
+    } catch (err) {
+        console.error('Error deleting group:', err);
+        return {
+            success: false,
+            error: err.response?.data?.message || 'Network or server error while deleting group'
+        };
+    }
+};

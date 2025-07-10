@@ -137,3 +137,33 @@ export const searchUsersByKeyword = async (keyword) => {
         };
     }
 };
+
+export const deleteUserFromGroup = async (groupId, userId) => {
+  try {
+    // Call backend API to delete the user from the group
+    await axios.delete(`${baseUrl}/api/groups/${groupId}/members/${userId}`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    // Call local service to delete from local DB
+    const localDeleteResult = await LocalGroupUsers.deleteUserFromGroup(groupId, userId);
+
+    // Optionally fetch updated local data
+    const updatedUsers = await LocalGroupUsers.getGroupUsersByGroupId(groupId);
+
+    return {
+      success: true,
+      message: 'User removed from group successfully',
+      local: localDeleteResult,
+      groupUsers: Array.isArray(updatedUsers) ? updatedUsers : updatedUsers?.groupUsers || []
+    };
+  } catch (err) {
+    console.error("Error removing user from group:", err);
+    return {
+      success: false,
+      message: err.response?.data?.message || 'Failed to remove user from group'
+    };
+  }
+};

@@ -71,4 +71,24 @@ const clearAllGroups = (db) => {
   }
 };
 
-module.exports = { createGroupsTable, saveGroup, getGroups, clearAllGroups};
+const deleteGroupById = (db, groupId) => {
+  if (!groupId) {
+    return { success: false, error: 'Group ID is required' };
+  }
+
+  try {
+    const stmt = db.prepare(`DELETE FROM groups WHERE id = ?`);
+    const result = stmt.run(groupId);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'No group found with that ID' };
+    }
+
+    return { success: true, deletedId: groupId };
+  } catch (error) {
+    console.error('Error deleting group by ID:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+module.exports = { createGroupsTable, saveGroup, getGroups, clearAllGroups, deleteGroupById};

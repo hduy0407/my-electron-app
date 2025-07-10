@@ -15,7 +15,16 @@ const groupUsersIpcHandler = (ipcMain, app) => {
 
   ipcMain.handle('groupUsers:clearAllGroupUsers', (event) => {
     return groupUsersTable.clearAllGroupUsers(db)
-  })
+  });
+
+  ipcMain.handle('groupUsers:deleteUserFromGroup', async (event, groupId, userId) => {
+    const db = app.db;
+    if (!groupId || !userId) {
+      return { success: false, error: 'Both groupId and userId are required' };
+    }
+
+    return groupUsersTable.deleteUserFromGroup(db, groupId, userId);
+  });
 };
 
 module.exports = groupUsersIpcHandler;

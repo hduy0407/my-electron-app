@@ -118,10 +118,35 @@ const clearAllGroupUsers = (db) => {
     }
 };
 
+const deleteUserFromGroup = (db, groupId, userId) => {
+  if (!groupId || !userId) {
+    return { success: false, error: 'Both groupId and userId are required' };
+  }
+
+  try {
+    const stmt = db.prepare(`
+      DELETE FROM group_users
+      WHERE group_id = ? AND user_id = ?
+    `);
+    const result = stmt.run(groupId, userId);
+
+    if (result.changes === 0) {
+      return { success: false, error: 'No user found with that groupId and userId' };
+    }
+
+    return { success: true, deleted: { groupId, userId } };
+  } catch (error) {
+    console.error('Error deleting user from group:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+
 module.exports = {
     createGroupUsersTable,
     saveGroupUsers,
     getGroupUsersByGroupId,
     migrateGroupUsersTable,
-    clearAllGroupUsers
+    clearAllGroupUsers,
+    deleteUserFromGroup
 };

@@ -17,18 +17,19 @@ import {
   HoverMeta
 } from './style/ChatWindowStyle';
 import { useState, useEffect, useRef } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { LocalPosts, LocalUser, LocalGroupUsers } from '../../service/local.service';
 import { createPost } from '../../service/remote-service/post.service';
-import TopBar from './TopBar'; 
-import GroupUsersDrawer from './GroupUserDrawer'; 
+import TopBar from './TopBar';
+import GroupUsersDrawer from './GroupUserDrawer';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { setSelectedConversation } from '../../redux/conversationSlice';
 
-
-export const ChatWindow = ({refreshKey=0}) => {
+export const ChatWindow = ({ refreshKey = 0 }) => {
   const selectedConversation = useSelector(
     (state) => state.conversation.selectedConversation
   );
+  const dispatch = useDispatch();
 
   const [messagesByGroup, setMessagesByGroup] = useState({});
   const [newMessage, setNewMessage] = useState('');
@@ -37,7 +38,7 @@ export const ChatWindow = ({refreshKey=0}) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const prevConversationIdRef = useRef(null);
   const [groupUsers, setGroupUsers] = useState({});
-
+  const [groups, setGroups] = useState([]);
 
   const currentMessages =
     selectedConversation?.id && messagesByGroup[selectedConversation.id]
@@ -47,8 +48,6 @@ export const ChatWindow = ({refreshKey=0}) => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  
 
   useEffect(() => {
     const loadUser = async () => {
@@ -60,37 +59,23 @@ export const ChatWindow = ({refreshKey=0}) => {
 
   useEffect(() => {
     const fetchGroupUsers = async () => {
-      console.log("selectedConversation in useEffect:", selectedConversation);
-      if (!selectedConversation?.id) {
-        console.warn("No selectedConversation.id found, skipping fetchGroupUsers");
-        return;
-      }
-
+      if (!selectedConversation?.id) return;
       const res = await LocalGroupUsers.getGroupUsersByGroupId(selectedConversation.id);
-      console.log('res fetchgroup:', res);
-
       if (res?.success && Array.isArray(res.groupUsers)) {
         setGroupUsers((prev) => ({
           ...prev,
           [selectedConversation.id]: res.groupUsers,
         }));
-      } else {
-        console.warn("Failed to fetch group users:", res);
       }
     };
-
     fetchGroupUsers();
   }, [selectedConversation?.id]);
-
-
 
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedConversation?.id || !currentUser) return;
-
       const res = await LocalPosts.getPostsByGroupId(selectedConversation.id);
       const posts = res?.posts || res?.data || (Array.isArray(res) ? res : []);
-
       if (Array.isArray(posts)) {
         const formatted = posts
           .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
@@ -101,12 +86,10 @@ export const ChatWindow = ({refreshKey=0}) => {
             created_at: msg.created_at,
             userId: msg.user_id,
           }));
-
         setMessagesByGroup((prev) => ({
           ...prev,
           [selectedConversation.id]: formatted,
         }));
-
         if (prevConversationIdRef.current !== selectedConversation.id) {
           setTimeout(() => {
             scrollToBottom();
@@ -115,53 +98,43 @@ export const ChatWindow = ({refreshKey=0}) => {
         }
       }
     };
-
     fetchMessages();
   }, [selectedConversation, currentUser, refreshKey]);
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!selectedConversation || !newMessage.trim() || !currentUser) return;
-
     const tempId = `temp-${Date.now()}`;
     const newLocalMessage = {
       id: tempId,
       text: newMessage.trim(),
       sender: 'user',
     };
-
-    const updatedMessages = [
-      ...(messagesByGroup[selectedConversation.id] || []),
-      newLocalMessage,
-    ];
-
-    // Set local message immediately
     setMessagesByGroup((prev) => ({
       ...prev,
-      [selectedConversation.id]: updatedMessages,
+      [selectedConversation.id]: [
+        ...(prev[selectedConversation.id] || []),
+        newLocalMessage,
+      ],
     }));
-    
-    // Clear input immediately
     setNewMessage('');
 
-    const requestBody = {
-      title: 'Convo',
-      content: newLocalMessage.text,
-      userId: currentUser.id,
-      groupId: selectedConversation.id,
-    };
-
     try {
+      const requestBody = {
+        title: 'Convo',
+        content: newLocalMessage.text,
+        userId: currentUser.id,
+        groupId: selectedConversation.id,
+      };
       const apiRes = await createPost(requestBody);
       const createdPost = apiRes?.post;
 
       if (createdPost) {
         await LocalPosts.savePost(createdPost);
-
-        // Replace temp message with real one
         setMessagesByGroup((prev) => {
-          const currentList = prev[selectedConversation.id] || [];
-          const filtered = currentList.filter((m) => m.id !== tempId);
+          const filtered = (prev[selectedConversation.id] || []).filter(
+            (m) => m.id !== tempId
+          );
           return {
             ...prev,
             [selectedConversation.id]: [
@@ -175,14 +148,20 @@ export const ChatWindow = ({refreshKey=0}) => {
           };
         });
       }
-
       scrollToBottom();
     } catch (err) {
       console.error('Send message failed:', err);
-      // Optionally show error/toast here
     }
   };
 
+  const handleGroupsUpdated = (newGroups) => {
+    setGroups(newGroups);
+    // If the current group was deleted, clear the conversation
+    const stillExists = newGroups.find(g => g.id === selectedConversation?.id);
+    if (!stillExists) {
+      dispatch(setSelectedConversation(null));
+    }
+  };
 
   if (!selectedConversation) {
     return (
@@ -195,13 +174,12 @@ export const ChatWindow = ({refreshKey=0}) => {
   }
 
   return (
-    
     <MainContainer>
       <TopBarWrapper>
-        <TopBar 
+        <TopBar
           group={{
             name: selectedConversation?.name,
-            avatar: selectedConversation?.avatar
+            avatar: selectedConversation?.avatar,
           }}
           onInfoClick={() => setDrawerOpen(true)}
         />
@@ -211,17 +189,16 @@ export const ChatWindow = ({refreshKey=0}) => {
         key={selectedConversation?.id + drawerOpen}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        onGroupsUpdated={handleGroupsUpdated}
         groupId={selectedConversation?.id}
-        initialGroupData={selectedConversation} 
-        onGroupNameChange={(newName) =>
-          // Ensure TopBar updates with new name
-          selectedConversation &&
-          (selectedConversation.name = newName) &&
-          // Trigger rerender by using useState if needed
-          setMessagesByGroup((prev) => ({ ...prev }))
-        }
+        initialGroupData={selectedConversation}
+        onGroupNameChange={(newName) => {
+          if (selectedConversation) {
+            selectedConversation.name = newName;
+            setMessagesByGroup((prev) => ({ ...prev }));
+          }
+        }}
       />
-
 
       <MessagesContainer>
         {(() => {
@@ -231,21 +208,19 @@ export const ChatWindow = ({refreshKey=0}) => {
             userMap[u.user_id] = u;
           });
 
-          let lastSenderId = null; // Declare outside map
+          let lastSenderId = null;
 
           return currentMessages.map((message, index) => {
             const isUser = message.sender === 'user';
             const showAvatarAndName = !isUser && message.userId !== lastSenderId;
-
             const sender = userMap[message.userId];
-
             const timeString = new Date(message.created_at || Date.now()).toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
             });
 
             if (!isUser) {
-              lastSenderId = message.userId; // Update after checking
+              lastSenderId = message.userId;
             }
 
             return (
@@ -287,10 +262,6 @@ export const ChatWindow = ({refreshKey=0}) => {
         <div ref={messagesEndRef} />
       </MessagesContainer>
 
-
-
-
-
       <form onSubmit={handleSendMessage}>
         <InputContainer>
           <Stack direction="row" spacing={2}>
@@ -309,25 +280,19 @@ export const ChatWindow = ({refreshKey=0}) => {
               endIcon={<SendIcon />}
               disableElevation
               sx={{
-
-              textTransform: 'none',
-              borderRadius: '10px',
-              padding: '4px',
-              backgroundColor: 'transparent',
-              color: '#1976d2',
-              transition: 'background-color 0.3s ease, box-shadow 0.3s ease',
-              '&:hover': {
+                textTransform: 'none',
+                borderRadius: '10px',
+                padding: '4px',
                 backgroundColor: 'transparent',
-              },
-              '&:active': {
-                backgroundColor: 'transparent',
-              },
-              '&.Mui-disabled': {
-                backgroundColor: '#e0e0e0',
-                color: '#9e9e9e',
-                boxShadow: 'none',
-              },
-            }}
+                color: '#1976d2',
+                '&:hover': { backgroundColor: 'transparent' },
+                '&:active': { backgroundColor: 'transparent' },
+                '&.Mui-disabled': {
+                  backgroundColor: '#e0e0e0',
+                  color: '#9e9e9e',
+                  boxShadow: 'none',
+                },
+              }}
             >
             </Button>
           </Stack>

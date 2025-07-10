@@ -15,6 +15,15 @@ const groupsIpcHandler = (ipcMain, app) => {
         const db = app.db
         return groupsTable.clearAllGroups(db);
     });
+
+    ipcMain.handle('groups:deleteGroupById', async (event, groupId) => {
+        const db = app.db;
+        if (!groupId) {
+            return { success: false, error: 'Group ID is required' };
+        }
+        return groupsTable.deleteGroupById(db, groupId);
+    });
+
 }
 
 module.exports = groupsIpcHandler;
