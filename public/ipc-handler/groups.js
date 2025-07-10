@@ -10,6 +10,11 @@ const groupsIpcHandler = (ipcMain, app) => {
         const db = app.db;
         return groupsTable.getGroups(db);
     });
+
+    ipcMain.handle('groups:clearAllGroups', () => {
+        const db = app.db
+        return groupsTable.clearAllGroups(db);
+    });
 }
 
 module.exports = groupsIpcHandler;

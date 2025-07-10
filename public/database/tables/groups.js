@@ -1,6 +1,6 @@
 const createGroupsTable = (db) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS groups (
-        id INTEGER PRIMARY,
+        id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         thumbnail TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -13,33 +13,39 @@ const saveGroup = (db, groupData) => {
         return { success: false, error: 'Invalid group data' };
     }
 
-    const { id, name, thumbnail } = groupData;
+    const groups = Array.isArray(groupData) ? groupData : [groupData];
+    const results = [];
 
-    if (!id || !name) {
-        console.error('Missing required fields in groupData:', groupData);
-        return { success: false, error: 'Missing group id or name' };
-    }
+    for (const g of groups) {
+        const { id, name, thumbnail } = g;
 
-    try {
-        // Check if group already exists
-        const existingGroup = db.prepare('SELECT * FROM groups WHERE id = ?').get(id);
-
-        if (existingGroup) {
-            // Update group
-            const stmt = db.prepare(`UPDATE groups SET name = ?, thumbnail = ? WHERE id = ?`);
-            stmt.run(name, thumbnail, id);
-            return { success: true, updated: true };
-        } else {
-            // Insert new group
-            const stmt = db.prepare(`INSERT INTO groups (id, name, thumbnail) VALUES (?, ?, ?)`);
-            stmt.run(id, name, thumbnail);
-            return { success: true, inserted: true };
+        if (!id || !name) {
+            console.error('Missing required fields in groupData:', g);
+            results.push({ success: false, error: 'Missing group id or name', group: g });
+            continue;
         }
-    } catch (error) {
-        console.error('Error saving group:', error);
-        return { success: false, error: error.message };
+
+        try {
+            const existingGroup = db.prepare('SELECT * FROM groups WHERE id = ?').get(id);
+
+            if (existingGroup) {
+                const stmt = db.prepare(`UPDATE groups SET name = ?, thumbnail = ? WHERE id = ?`);
+                stmt.run(name, thumbnail, id);
+                results.push({ success: true, updated: true, group: g });
+            } else {
+                const stmt = db.prepare(`INSERT INTO groups (id, name, thumbnail) VALUES (?, ?, ?)`);
+                stmt.run(id, name, thumbnail);
+                results.push({ success: true, inserted: true, group: g });
+            }
+        } catch (error) {
+            console.error('Error saving group:', error);
+            results.push({ success: false, error: error.message, group: g });
+        }
     }
+
+    return { success: results.every(r => r.success), results };
 };
+
 
 const getGroups = (db) => {
     if (!db) {
@@ -55,4 +61,14 @@ const getGroups = (db) => {
     }
 }
 
-module.exports = { createGroupsTable, saveGroup, getGroups };
+const clearAllGroups = (db) => {
+  try {
+    db.prepare(`DELETE FROM groups`).run();
+    return { success: true };
+  } catch (error) {
+    console.error('Error clearing groups table:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+module.exports = { createGroupsTable, saveGroup, getGroups, clearAllGroups};

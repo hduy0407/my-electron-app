@@ -1,11 +1,11 @@
 const createUsersTable = (db) => {
     db.prepare(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY,
+        id TEXT PRIMARY KEY,
         username TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         full_name TEXT,
-        gender TEXT CHECK (gender IN ('M', 'F', 'O')) DEFAULT 'O',
-        date_of_birth TEXT
+        gender TEXT CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')) DEFAULT 'OTHER',
+        date_of_birth INTEGER
     )`).run();
 };
 
@@ -74,15 +74,11 @@ const saveUser = (db, userData) => {
 };
 
 
-const getCurrentUser = (db, email) => {
-    if (!email) {
-        console.error('Missing email for getCurrentUser');
-        return { success: false, error: 'Missing email' };
-    }
+const getCurrentUser = (db) => {
 
     try {
-        const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-        const user = stmt.get(email);
+        const stmt = db.prepare('SELECT * FROM users LIMIT 1');
+        const user = stmt.get();
 
         if (user) {
             return { success: true, user };
@@ -105,4 +101,16 @@ const getUserByUsername = (db, username) => {
     }
 }
 
-module.exports = {createUsersTable, saveUser, getUserByUsername, getCurrentUser};
+
+const clearUser = (db) => {
+    try {
+        db.prepare(`DELETE FROM users`).run();
+        return { success: true };
+    } catch (error) {
+        console.error('Error clearing users table:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+
+module.exports = {createUsersTable, saveUser, getUserByUsername, getCurrentUser, clearUser};

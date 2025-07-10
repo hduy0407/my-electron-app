@@ -16,21 +16,21 @@ export const fetchAndSaveGroups = async () => {
         const result = response.data;
         console.log("API response for groups:", result);
 
-        const groupsData = result.data.groups.map(group => ({
+        const groupsData = result.data.groups
+        .filter(group => group.id && group.name)  // Filter out bad data
+        .map(group => ({
             id: group.id,
             name: group.name,
-            avatar: group.thumbnail || undefined
+            avatar: group.thumbnail?.trim() ? group.thumbnail : undefined
         }));
-        console.log("Groups fetched from API:", groupsData);
 
         const saveResult = await LocalGroups.saveGroup(groupsData);
-        console.log("Local save result:", saveResult);
     
 
         let verifyResult = null;
         if (saveResult.success) {
             verifyResult = await LocalGroups.getGroups();
-            console.log("Verified groups from local DB:", verifyResult);
+           
         }
 
         return {
@@ -61,19 +61,16 @@ export const createGroup = async (groupData) => {
         const result = response.data;
         console.log("API response for creating group:", result);
 
-        const groupToSave = {
-            id: result.data.id,
-            name: result.data.name,
-            avatar: result.data.thumbnail || undefined
-        };
-
-        const saveResult = await LocalGroups.saveGroup(groupToSave);
-        console.log("Local save result:", saveResult);
+        const getGroupsResult = await fetchAndSaveGroups();
+        if (!getGroupsResult.success) {
+            console.error("Failed to fetch and save groups after creating a new group:", getGroupsResult.error);
+            return { success: false, error: getGroupsResult.error };
+        }
 
         return {
             success: true,
-            group: result.data,
-            localSave: saveResult
+            groups: getGroupsResult.groups,
+            message: result.message || 'Group created successfully'
         };
 
     } catch (err) {
@@ -81,6 +78,46 @@ export const createGroup = async (groupData) => {
         return {
             success: false,
             error: err.response?.data?.message || 'Network or server error while creating group'
+        };
+    }
+}
+
+export const updateGroup = async (groupId, groupData) => {
+    try {
+        const response = await axios.put(`${baseUrl}/api/groups/${groupId}`, groupData, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        const result = response.data;
+        console.log("API response for updating group:", result);
+
+        const getGroupsResult = await fetchAndSaveGroups();
+        if (!getGroupsResult.success) {
+            console.error("Failed to fetch and save groups after updating group:", getGroupsResult.error);
+            return { success: false, error: getGroupsResult.error };
+        }
+
+        return {
+            success: true,
+            groups: getGroupsResult.groups,
+            message: result.message || 'Group updated successfully'
+        };
+
+    } catch (err) {
+        const status = err.response?.status;
+        const errorMessage = err.response?.data?.message || 'Network or server error while updating group';
+
+        if (status === 403) {
+            return { success: false, error: 'You do not have permission to update this group.' };
+        }
+
+        console.error('Error updating group:', err);
+        return {
+            success: false,
+            error: errorMessage
         };
     }
 }
