@@ -1,197 +1,169 @@
 import React, { useState } from 'react';
-import { Typography, TextField, Button, Alert, CircularProgress } from '@mui/material';
-import { MainBox, RightBox, LeftBox, FormContainer } from '../../style/BoxStyle';
+import {
+  CircularProgress
+} from '@mui/material';
 import { useNavigate, Link } from 'react-router-dom';
 import { requestRegister } from '../../service/remote-service/register.service';
 
+import {
+  PageWrapper,
+  LeftPanel,
+  RightPanel,
+  FormCard,
+  FormTitle,
+  StyledTextField,
+  SubmitButton,
+  LinkLine
+} from '../../style/BoxStyle';
 
 const Signup = () => {
-    const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    
-    const [data, setData] = useState({
-        email: '',
-        username: '',
-        password: '',
-        confirmPassword: ''
-    });
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-    const [errors, setErrors] = useState({
-        email: '',
-        username: '',
-        password: '',
-        confirmPassword: ''
-    });
+  const [data, setData] = useState({
+    email: '',
+    username: '',
+    password: '',
+    confirmPassword: ''
+  });
 
-    const validateForm = () => {
-        let tempErrors = {
-            email: '',
-            username: '',
-            password: '',
-            confirmPassword: ''
-        };
-        let isValid = true;
+  const [errors, setErrors] = useState({
+    email: '',
+    username: '',
+    password: '',
+    confirmPassword: ''
+  });
 
-        // Email validation
-        if (!data.email) {
-            tempErrors.email = 'Email là bắt buộc';
-            isValid = false;
-        } else if (!/\S+@\S+\.\S+/.test(data.email)) {
-            tempErrors.email = 'Email không hợp lệ';
-            isValid = false;
-        }
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[\W_]).{6,20}$/;
 
-        // Username validation
-        if (!data.username) {
-            tempErrors.username = 'Tên người dùng là bắt buộc';
-            isValid = false;
-        }
-
-        // Password validation
-        if (!data.password) {
-            tempErrors.password = 'Mật khẩu là bắt buộc';
-            isValid = false;
-        } else if (data.password.length < 6) {
-            tempErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-            isValid = false;
-        }
-
-        // Confirm password validation
-        if (!data.confirmPassword) {
-            tempErrors.confirmPassword = 'Xác nhận mật khẩu là bắt buộc';
-            isValid = false;
-        } else if (data.password !== data.confirmPassword) {
-            tempErrors.confirmPassword = 'Mật khẩu không khớp';
-            isValid = false;
-        }
-
-        setErrors(tempErrors);
-        return isValid;
+  const validateForm = () => {
+    let tempErrors = {
+      email: '',
+      username: '',
+      password: '',
+      confirmPassword: ''
     };
+    let isValid = true;
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setData(prevState => ({
-            ...prevState,
-            [name]: value
-        }));
-        // Clear error when user starts typing
-        setErrors(prevState => ({
-            ...prevState,
-            [name]: ''
-        }));
+    if (!data.email) {
+      tempErrors.email = 'Email là bắt buộc';
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(data.email)) {
+      tempErrors.email = 'Email không hợp lệ';
+      isValid = false;
+    }
+
+    if (!data.username) {
+      tempErrors.username = 'Tên người dùng là bắt buộc';
+      isValid = false;
+    } else if (data.username.length < 3 || data.username.length > 20) {
+      tempErrors.username = 'Tên người dùng phải từ 3 đến 20 ký tự';
+      isValid = false;
+    }
+
+    if (!data.password) {
+      tempErrors.password = 'Mật khẩu là bắt buộc';
+      isValid = false;
+    } else if (!passwordRegex.test(data.password)) {
+      tempErrors.password = 'Mật khẩu phải dài 6-20 ký tự, có ít nhất một chữ hoa, một chữ thường và một ký tự đặc biệt';
+      isValid = false;
+    }
+
+    if (!data.confirmPassword) {
+      tempErrors.confirmPassword = 'Xác nhận mật khẩu là bắt buộc';
+      isValid = false;
+    } else if (data.password !== data.confirmPassword) {
+      tempErrors.confirmPassword = 'Mật khẩu không khớp';
+      isValid = false;
+    }
+
+    setErrors(tempErrors);
+    return isValid;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setData(prev => ({ ...prev, [name]: value }));
+    setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!validateForm()) return;
+
+    const basicInfo = {
+      email: data.email,
+      username: data.username,
+      password: data.password,
     };
+    localStorage.setItem('pendingSignup', JSON.stringify(basicInfo));
+    navigate("/personal-info");
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
+  return (
+    <PageWrapper>
+      <LeftPanel>
+        <FormCard component="form" onSubmit={handleSubmit}>
+          <FormTitle variant="h4">Tạo tài khoản mới</FormTitle>
 
-        if (!validateForm()) {
-            return;
-        }
+          <StyledTextField
+            name="email"
+            label="Nhập email của bạn"
+            value={data.email}
+            onChange={handleChange}
+            type="email"
+            fullWidth
+            error={!!errors.email}
+            helperText={errors.email}
+          />
 
-        setIsLoading(true);
-        try {
-            const callAPI = await requestRegister(data.email, data.username, data.password);
+          <StyledTextField
+            name="username"
+            label="Nhập tên người dùng"
+            value={data.username}
+            onChange={handleChange}
+            fullWidth
+            error={!!errors.username}
+            helperText={errors.username}
+          />
 
-            if (callAPI.success) {
-                navigate("/");
-            } else {
-                setError("Đăng ký thất bại. Vui lòng thử lại.");
-            }
-        } catch (error) {
-            console.error("Registration error:", error);
-            setError("Đã xảy ra lỗi trong quá trình đăng ký. Vui lòng thử lại sau.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+          <StyledTextField
+            name="password"
+            label="Nhập mật khẩu"
+            value={data.password}
+            onChange={handleChange}
+            type="password"
+            fullWidth
+            error={!!errors.password}
+            helperText={errors.password}
+          />
 
-    return (
-        <MainBox>
-            <LeftBox>
-                <FormContainer onSubmit={handleSubmit}>
-                    <Typography variant="h4" gutterBottom align='center'>
-                        Tạo tài khoản mới
-                    </Typography>
-                    
-                    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                    
-                    <TextField
-                        name="email"
-                        onChange={handleChange}
-                        value={data.email}
-                        label="Nhập email của bạn"
-                        variant="outlined"
-                        type="email"
-                        fullWidth
-                        margin="normal"
-                        error={!!errors.email}
-                        helperText={errors.email}
-                    />
-                    
-                    <TextField
-                        name="username"
-                        onChange={handleChange}
-                        value={data.username}
-                        label="Nhập tên người dùng"
-                        variant="outlined"
-                        fullWidth
-                        margin="normal"
-                        error={!!errors.username}
-                        helperText={errors.username}
-                    />
+          <StyledTextField
+            name="confirmPassword"
+            label="Xác nhận mật khẩu"
+            value={data.confirmPassword}
+            onChange={handleChange}
+            type="password"
+            fullWidth
+            error={!!errors.confirmPassword}
+            helperText={errors.confirmPassword}
+          />
 
-                    <TextField
-                        name="password"
-                        value={data.password}
-                        onChange={handleChange}
-                        label="Nhập mật khẩu của bạn"
-                        variant="outlined"
-                        type="password"
-                        fullWidth
-                        margin="normal"
-                        error={!!errors.password}
-                        helperText={errors.password}
-                    />
+          <SubmitButton type="submit" disabled={isLoading}>
+            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Đăng ký'}
+          </SubmitButton>
 
-                    <TextField
-                        name="confirmPassword"
-                        value={data.confirmPassword}
-                        onChange={handleChange}
-                        label="Xác nhận mật khẩu của bạn"
-                        variant="outlined"
-                        type="password"
-                        fullWidth
-                        margin="normal"
-                        error={!!errors.confirmPassword}
-                        helperText={errors.confirmPassword}
-                    />
-
-                    <Button
-                        variant="contained"
-                        type="submit"
-                        disabled={isLoading}
-                        sx={{ 
-                            mt: 2, 
-                            backgroundColor: '#3CA2F0', 
-                            '&:hover': { backgroundColor: '#2288D7' }, 
-                            boxShadow: 'none',  
-                            alignSelf: 'center', 
-                            borderRadius: '15px',
-                            width: '100%'
-                        }}
-                    >
-                        {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Đăng ký'}
-                    </Button>
-
-                    <Typography>Bạn đã có tài khoản? <Link to="/">Đăng nhập</Link></Typography>
-                </FormContainer>
-            </LeftBox>
-            <RightBox />
-        </MainBox>
-    );
+          <LinkLine>
+            Bạn đã có tài khoản? <Link to="/">Đăng nhập</Link>
+          </LinkLine>
+        </FormCard>
+      </LeftPanel>
+      <RightPanel />
+    </PageWrapper>
+  );
 };
 
 export default Signup;

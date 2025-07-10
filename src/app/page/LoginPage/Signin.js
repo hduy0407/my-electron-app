@@ -1,132 +1,116 @@
-import React, { useState } from 'react'
-import { Typography, TextField, Button, Avatar, Alert } from '@mui/material';
-import { MainBox, RightBox, LeftBox, FormContainer } from '../../style/BoxStyle';
+import React, { useState } from 'react';
+import { Avatar, Alert } from '@mui/material';
 import { useNavigate, Link } from 'react-router-dom';
 import { requestLogin } from '../../service/remote-service/login.service';
 
+import {
+  PageWrapper,
+  LeftPanel,
+  RightPanel,
+  WelcomeBox,
+  FormCard,
+  FormTitle,
+  StyledTextField,
+  SubmitButton,
+  LinkLine
+} from '../../style/BoxStyle';
+
 function Signin() {
-    const navigate = useNavigate();
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-    const [data, setData] = useState({
-        email: '',
-        password: ''
-    });
+  const [data, setData] = useState({
+    email: '',
+    password: ''
+  });
 
-    const handleChange = (e) => {
-        setError(''); // Clear error when user types
-        setData(prevState => ({
-            ...prevState,
-            [e.target.name]: e.target.value
-        }));
+  const handleChange = (e) => {
+    setError('');
+    setData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (!data.email || !data.password) {
+        setError('Vui lòng điền đầy đủ thông tin đăng nhập.');
+        return;
+      }
+
+      const result = await requestLogin(data.email, data.password);
+      if (result?.success) {
+        navigate("/home");
+      } else {
+        setError(result?.error || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Đã xảy ra lỗi. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
+  return (
+    <PageWrapper>
+      <LeftPanel>
+        <WelcomeBox>
+          <FormTitle variant="h5">Chào mừng bạn</FormTitle>
+          <FormTitle variant="h6">tham gia</FormTitle>
+          <Avatar sx={{ margin: '0 auto' }} />
+          <FormTitle variant="h5">Máy chủ Hà Nội</FormTitle>
+        </WelcomeBox>
 
-        try {
-            // Validate inputs
-            if (!data.email || !data.password) {
-                setError('Vui lòng điền đầy đủ thông tin đăng nhập.');
-                return;
-            }
+        <FormCard component="form" onSubmit={handleSubmit}>
+          <FormTitle variant="h4">Đăng nhập</FormTitle>
 
-            console.log('Attempting login with:', data.email); // Debug log
-            const result = await requestLogin(data.email, data.password);
-            console.log('Login result:', result); // Debug log
+          {error && (
+            <Alert severity="error">{error}</Alert>
+          )}
 
-            if (result?.success) {
-                console.log('Login successful, navigating...'); // Debug log
-                navigate("/home");
-            } else {
-                setError(result?.error || 'Login failed. Please check your credentials.');
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            setError('An error occurred during login. Please try again.');
-        } finally {
-            setLoading(false);
-        }
-    };
+          <StyledTextField
+            name="email"
+            label="Nhập email của bạn"
+            variant="outlined"
+            type="email"
+            value={data.email}
+            onChange={handleChange}
+            fullWidth
+            required
+            disabled={loading}
+          />
+          <StyledTextField
+            name="password"
+            label="Nhập mật khẩu của bạn"
+            variant="outlined"
+            type="password"
+            value={data.password}
+            onChange={handleChange}
+            fullWidth
+            required
+            disabled={loading}
+          />
 
-    return (
-        <MainBox>
-            <LeftBox>
-                <FormContainer sx={{ mb: 8 }}>
-                    <Typography variant="h5" gutterBottom align='center'>
-                        Chào mừng bạn
-                    </Typography>
-                    <Typography variant="h6" gutterBottom align='center'>
-                        tham gia
-                    </Typography>
-                    <Avatar alt="" />
-                    <Typography variant="h5" gutterBottom align='center'>
-                        Máy chủ Hà Nội
-                    </Typography>
-                </FormContainer>
-                <FormContainer component="form" onSubmit={handleSubmit}>
-                    <Typography variant="h4" gutterBottom align='center'>
-                        Đăng nhập
-                    </Typography>
-                    
-                    {error && (
-                        <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-                            {error}
-                        </Alert>
-                    )}
+          <SubmitButton type="submit" disabled={loading}>
+            {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </SubmitButton>
 
-                    <TextField
-                        name='email'
-                        label="Nhập email của bạn"
-                        variant="outlined"
-                        type="email"
-                        value={data.email}
-                        onChange={handleChange}
-                        fullWidth
-                        margin="normal"
-                        required
-                        error={!!error}
-                        disabled={loading}
-                    />
-                    <TextField
-                        name='password'
-                        label="Nhập mật khẩu của bạn"
-                        variant="outlined"
-                        type="password"
-                        value={data.password}
-                        onChange={handleChange}
-                        fullWidth
-                        margin="normal"
-                        required
-                        error={!!error}
-                        disabled={loading}
-                    />
-                    <Button
-                        variant="contained"
-                        type='submit'
-                        disabled={loading}
-                        sx={{ 
-                            mt: 2, 
-                            backgroundColor: '#3CA2F0', 
-                            '&:hover': { backgroundColor: '#2288D7' }, 
-                            boxShadow: 'none',  
-                            alignSelf: 'center', 
-                            borderRadius: '15px',
-                            width: '100%'
-                        }}
-                    >
-                        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                    </Button>
+          <LinkLine>
+            Bạn chưa có tài khoản? <Link to="/signup">Đăng ký</Link>
+          </LinkLine>
+        </FormCard>
+      </LeftPanel>
 
-                    <Typography>Bạn chưa có tài khoản? <Link to="/signup">Đăng ký</Link></Typography>
-                </FormContainer>
-            </LeftBox>
-            <RightBox />
-        </MainBox>
-    )
+      <RightPanel />
+    </PageWrapper>
+  );
 }
 
 export default Signin;

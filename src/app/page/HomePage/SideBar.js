@@ -1,133 +1,150 @@
-import { Avatar, Typography, TextField, Box, ListItemText, Button, Drawer } from "@mui/material";
+// SideBar.jsx
+import {
+    Avatar, Typography, TextField, Box, ListItemText,
+    Button, Drawer, Collapse, List
+} from '@mui/material';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
-import { SidebarStyle, SearchBarStyle, ConversationListStyle, ConversationItemStyle, ListItem, BoxList } from "./style/SidebarStyle";
-import { UserBoxStyle } from "./style/SidebarStyle";
-import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { Collapse, List } from "@mui/material";
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import AddIcon from '@mui/icons-material/Add';
-import { DrawerProfile } from "./DrawerProfile";
-import { ChatList } from "./ChatList";
-import { LocalUser } from "../../service/local.service";
-import { getGroups } from "../../service/remote-service/group.service";
+import {
+    SidebarStyle, SearchBarStyle, ConversationListStyle,
+    ListItemStyle, BoxList, UserBoxStyle, ConversationListWrapper
+} from './style/SidebarStyle';
+import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import {DrawerProfile} from './DrawerProfile';
+import {ChatList} from './ChatList';
+import {CreateGroupDrawer} from './CreateGroup';
+import { LocalUser, LocalGroups, LocalPosts } from '../../service/local.service';
 
-const baseUrl = process.env.REACT_APP_API_URL;
-
-const SideBar = () => {
+const SideBar = ({ onSelectedConversation, refreshKey=0 }) => {
     const [conversations, setConversations] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [open, setOpen] = useState(false);
+    const [searchResults, setSearchResults] = useState([]);
+    const [open, setOpen] = useState(true);
     const [openDrawer, setOpenDrawer] = useState(false);
-    const [searchConversation, setSearchConversation] = useState('');
-    const [user, setUser] = useState({
-        username: '',
-        avatar: ''
-    });
-
-    const handleClick = () => {
-        setOpen(!open);
-    };
-
-    const toggleDrawer = (newOpen) => () => {
-        setOpenDrawer(newOpen);
-    };
+    const [openDrawerGroup, setOpenDrawerGroup] = useState(false);
+    const [user, setUser] = useState({ username: '', avatar: '' });
 
     const navigate = useNavigate();
 
+    const toggleDrawer = (setter) => (open) => () => setter(open);
+    const handleClick = () => setOpen(!open);
+
     const handleSearch = (e) => {
-        const value = e.target.value;
-        setSearchTerm(value);
-    
-        const filtered = conversations.filter(conversation =>
-            conversation.name.toLowerCase().includes(value.toLowerCase())
+        const term = e.target.value;
+        setSearchTerm(term);
+        const filtered = conversations.filter(c =>
+            c.name?.toLowerCase().includes(term.toLowerCase())
         );
-        setSearchConversation(filtered);
+        setSearchResults(filtered);
+    };
+
+    const handleGroupCreated = (newGroup) => {
+        setConversations(prev => [...prev, newGroup]);
+        setSearchResults(prev => [...prev, newGroup]);
     };
 
     useEffect(() => {
-        getGroups(setConversations, setSearchConversation);
-    }, []);
-    
-    useEffect(() => {
         const token = localStorage.getItem('token');
-        if (!token) {
-            console.warn("No token found, redirecting to login");
-            navigate('/');
-            return;
-        }
-        const fetchLocalUser = async () => {
-            try {
-                const user = await LocalUser.getCurrentUser();
-                console.log("Local user from DB:", user);
+        if (!token) return navigate('/');
 
-                if (user) {
-                    setUser(user);
-                } else {
-                    console.warn("No local user found in database.");
-                }
-            } catch (err) {
-                console.error("Error fetching local user:", err);
+        const fetchData = async () => {
+            const resUser = await LocalUser.getCurrentUser();
+            if (resUser?.success && resUser.user) {
+                setUser({
+                    username: resUser.user.username,
+                    avatar: resUser.user.avatar
+                });
+            }
+
+            const resGroups = await LocalGroups.getGroups();
+            if (resGroups?.success) {
+                const groups = resGroups.groups || [];
+
+                const enriched = await Promise.all(groups.map(async (group) => {
+                    const latest = await LocalPosts.getLatestMessageByGroupId(group.id);
+                    console.log("Latest message for group", group.id, latest);
+
+                    const latestMessage = latest?.latestMessage;
+
+                    return {
+                    ...group,
+                    lastMessage: latestMessage?.content || 'No messages yet',
+                    lastMessageTime: latestMessage?.created_at || '',
+                    };
+                }));
+
+                // Sort groups by latest message time descending
+                enriched.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+
+                setConversations(enriched);
+                setSearchResults(enriched);
             }
         };
 
-        fetchLocalUser();
-    }, []);
+        fetchData();
+    }, [navigate, refreshKey]);
 
     return (
         <SidebarStyle>
             <UserBoxStyle>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }} onClick={toggleDrawer(true)}>
-                    <Avatar src={user.avatar}/>
-                    <Typography variant="subtitle1">
-                        {user.username}
-                    </Typography>
+                <Box display="flex" gap={2} alignItems="center" onClick={toggleDrawer(setOpenDrawer)(true)}>
+                    <Avatar src={user.avatar} alt={user.username}>
+                        {(!user?.avatar && user?.username) ? user.username.charAt(0).toUpperCase() : null}
+                    </Avatar>
+                    <Typography>{user.username}</Typography>
                 </Box>
-                <Drawer open={openDrawer} onClose={toggleDrawer(false)}>
-                    <DrawerProfile toggleDrawer={toggleDrawer} user={{
-                        avatar: user.avatar,
-                        name: user.username
-                    }}/>
+                <Drawer open={openDrawer} onClose={toggleDrawer(setOpenDrawer)(false)}>
+                    <DrawerProfile user={user} toggleDrawer={toggleDrawer(setOpenDrawer)} />
                 </Drawer>
-                <NotificationsNoneIcon />
             </UserBoxStyle>
-            
 
             <SearchBarStyle>
-                <TextField 
+                <TextField
                     fullWidth
+                    size="small"
                     placeholder="Search conversations..."
                     value={searchTerm}
                     onChange={handleSearch}
-                    variant="outlined"
-                    size="small"
                 />
             </SearchBarStyle>
 
             <BoxList>
-                <ListItem onClick={handleClick} sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%' }}>
+                <ListItemStyle onClick={handleClick}>
                     <ListItemText primary="Nhóm" />
                     {open ? <ExpandLess /> : <ExpandMore />}
-                </ListItem>
-                <Button>
-                    <AddIcon />
-                </Button>
+                </ListItemStyle>
+                <Button onClick={toggleDrawer(setOpenDrawerGroup)(true)}><AddIcon /></Button>
+                <Drawer open={openDrawerGroup} onClose={toggleDrawer(setOpenDrawerGroup)(false)}>
+                    <CreateGroupDrawer
+                        toggleDrawer={toggleDrawer(setOpenDrawerGroup)}
+                        onGroupCreated={handleGroupCreated}
+                    />
+                </Drawer>
             </BoxList>
-            <Collapse in={open} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding>
-                    <ConversationListStyle>
-                        <ChatList conversations={
-                            searchTerm.trim()
-                            ? searchConversation
-                            : conversations
-                        } 
-                        />
-                    </ConversationListStyle>
-                </List>
-            </Collapse>
+
+            <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                <Collapse in={open} timeout={300} unmountOnExit orientation="vertical">
+
+                </Collapse>
+
+                {/* Scrollable chat list remains outside */}
+                {open && (
+                    <ConversationListWrapper className={!open ? 'collapsed' : ''}>
+                        <ConversationListStyle>
+                            <ChatList
+                            conversations={searchTerm.trim() ? searchResults : conversations}
+                            onSelect={onSelectedConversation}
+                            />
+                        </ConversationListStyle>
+                    </ConversationListWrapper>
+                )}
+            </Box>
+
         </SidebarStyle>
     );
-}
+};
 
 export default SideBar;
