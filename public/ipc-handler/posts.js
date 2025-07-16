@@ -61,6 +61,16 @@ const postsIpcHandler = (ipcMain, app) => {
     return postsTable.clearAllPosts(db);
   });
 
+  ipcMain.handle('posts:updatePost', async (event, postId, newContent) => {
+    try {
+      const result = await postsTable.updatePostContent(db, postId, newContent);
+      return { success: true, data: result };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+
 };
 
 module.exports = postsIpcHandler;

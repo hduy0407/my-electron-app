@@ -86,6 +86,9 @@ contextBridge.exposeInMainWorld('localDatabase', {
     },
     clearAllPosts: async () => {
       return await ipcRenderer.invoke('posts:clearAllPosts');
+    },
+    updatePostContent: async (postId, newContent) => {
+      return await ipcRenderer.invoke('posts:updatePost', postId, newContent);
     }
   },
 

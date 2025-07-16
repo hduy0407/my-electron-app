@@ -156,10 +156,12 @@ const getPostsByGroupId = (db, groupId) => {
 const getLatestMessageByGroupId = (db, groupId) => {
   try {
     return db.prepare(`
-      SELECT content, created_at
-      FROM posts
-      WHERE group_id = ?
-      ORDER BY datetime(created_at) DESC
+      SELECT p.content, p.created_at, p.user_id, gu.username
+      FROM posts p
+      LEFT JOIN group_users gu
+        ON p.user_id = gu.user_id AND p.group_id = gu.group_id
+      WHERE p.group_id = ?
+      ORDER BY datetime(p.created_at) DESC
       LIMIT 1
     `).get(groupId);
   } catch (error) {
@@ -167,6 +169,8 @@ const getLatestMessageByGroupId = (db, groupId) => {
     return null;
   }
 };
+
+
 
 const clearAllPosts = (db) => {
     try {
@@ -176,6 +180,24 @@ const clearAllPosts = (db) => {
         console.error('Error clearing posts table:', error);
         return { success: false, error: error.message };
     }
+};
+
+const updatePostContent = (db, postId, newContent) => {
+  try {
+    const updateStmt = db.prepare(`
+      UPDATE posts SET content = ? WHERE id = ?
+    `);
+    const result = updateStmt.run(newContent, postId);
+
+    if (result.changes > 0) {
+      return { success: true, updated: true };
+    } else {
+      return { success: false, updated: false, message: 'No changes made' };
+    }
+  } catch (error) {
+    console.error('Error updating post content:', error);
+    return { success: false, error: error.message };
+  }
 };
 
 
@@ -190,5 +212,6 @@ module.exports = {
   addGroupIdColumnIfMissing,
   migratePostsIdToText,
   getLatestMessageByGroupId,
-  clearAllPosts
+  clearAllPosts,
+  updatePostContent
 };

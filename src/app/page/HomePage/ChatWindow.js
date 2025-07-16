@@ -4,7 +4,14 @@ import {
   Stack,
   Button,
   Box,
-  Avatar
+  Avatar,
+  IconButton,
+  Menu,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import {
@@ -14,18 +21,47 @@ import {
   MessageBubble,
   InputContainer,
   TopBarWrapper,
-  HoverMeta
+  HoverMeta,
+  
 } from './style/ChatWindowStyle';
 import { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { LocalPosts, LocalUser, LocalGroupUsers } from '../../service/local.service';
-import { createPost } from '../../service/remote-service/post.service';
+import {
+  LocalPosts,
+  LocalUser,
+  LocalGroupUsers,
+} from '../../service/local.service';
+import { createPost, updatePost } from '../../service/remote-service/post.service';
 import TopBar from './TopBar';
 import GroupUsersDrawer from './GroupUserDrawer';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { setSelectedConversation } from '../../redux/conversationSlice';
+import ThumbUpAltOutlinedIcon from '@mui/icons-material/ThumbUpAltOutlined';
 
-export const ChatWindow = ({ refreshKey = 0 }) => {
+
+
+const formatDateLabel = (dateStr) => {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const isSameDay = (a, b) =>
+    a.getDate() === b.getDate() &&
+    a.getMonth() === b.getMonth() &&
+    a.getFullYear() === b.getFullYear();
+
+  if (isSameDay(date, today)) return 'Today';
+  if (isSameDay(date, yesterday)) return 'Yesterday';
+
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+};
+
+export const ChatWindow = ({ refreshKey = 0, onGroupUpdated }) => {
   const selectedConversation = useSelector(
     (state) => state.conversation.selectedConversation
   );
@@ -38,7 +74,13 @@ export const ChatWindow = ({ refreshKey = 0 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const prevConversationIdRef = useRef(null);
   const [groupUsers, setGroupUsers] = useState({});
-  const [groups, setGroups] = useState([]);
+  const [inputFocused, setInputFocused] = useState(false);
+
+  // Edit dialog state
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editContent, setEditContent] = useState('');
 
   const currentMessages =
     selectedConversation?.id && messagesByGroup[selectedConversation.id]
@@ -60,7 +102,9 @@ export const ChatWindow = ({ refreshKey = 0 }) => {
   useEffect(() => {
     const fetchGroupUsers = async () => {
       if (!selectedConversation?.id) return;
-      const res = await LocalGroupUsers.getGroupUsersByGroupId(selectedConversation.id);
+      const res = await LocalGroupUsers.getGroupUsersByGroupId(
+        selectedConversation.id
+      );
       if (res?.success && Array.isArray(res.groupUsers)) {
         setGroupUsers((prev) => ({
           ...prev,
@@ -74,9 +118,14 @@ export const ChatWindow = ({ refreshKey = 0 }) => {
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedConversation?.id || !currentUser) return;
+
       const res = await LocalPosts.getPostsByGroupId(selectedConversation.id);
       const posts = res?.posts || res?.data || (Array.isArray(res) ? res : []);
       if (Array.isArray(posts)) {
+        const existing = messagesByGroup[selectedConversation.id] || [];
+        const hasPending = existing.some((m) => m.isPending);
+        if (hasPending) return;
+
         const formatted = posts
           .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
           .map((msg) => ({
@@ -85,15 +134,16 @@ export const ChatWindow = ({ refreshKey = 0 }) => {
             sender: msg.user_id === currentUser.id ? 'user' : 'other',
             created_at: msg.created_at,
             userId: msg.user_id,
+            isPending: false,
           }));
+
         setMessagesByGroup((prev) => ({
           ...prev,
           [selectedConversation.id]: formatted,
         }));
+
         if (prevConversationIdRef.current !== selectedConversation.id) {
-          setTimeout(() => {
-            scrollToBottom();
-          }, 50);
+          setTimeout(scrollToBottom, 50);
           prevConversationIdRef.current = selectedConversation.id;
         }
       }
@@ -101,67 +151,113 @@ export const ChatWindow = ({ refreshKey = 0 }) => {
     fetchMessages();
   }, [selectedConversation, currentUser, refreshKey]);
 
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!selectedConversation || !newMessage.trim() || !currentUser) return;
+  const handleSendMessage = async (e, customMessage = null) => {
+    if (e) e.preventDefault();
+    const messageToSend = customMessage || newMessage.trim();
+    if (!selectedConversation || !messageToSend || !currentUser) return;
+
     const tempId = `temp-${Date.now()}`;
-    const newLocalMessage = {
+    const tempMessage = {
       id: tempId,
-      text: newMessage.trim(),
+      text: messageToSend,
       sender: 'user',
+      isPending: true,
+      created_at: new Date().toISOString(),
+      userId: currentUser.id,
     };
+
     setMessagesByGroup((prev) => ({
       ...prev,
       [selectedConversation.id]: [
         ...(prev[selectedConversation.id] || []),
-        newLocalMessage,
+        tempMessage,
       ],
     }));
-    setNewMessage('');
+
+    if (!customMessage) setNewMessage('');
+    scrollToBottom();
 
     try {
       const requestBody = {
         title: 'Convo',
-        content: newLocalMessage.text,
+        content: messageToSend,
         userId: currentUser.id,
         groupId: selectedConversation.id,
       };
+
       const apiRes = await createPost(requestBody);
       const createdPost = apiRes?.post;
 
       if (createdPost) {
         await LocalPosts.savePost(createdPost);
+
         setMessagesByGroup((prev) => {
-          const filtered = (prev[selectedConversation.id] || []).filter(
-            (m) => m.id !== tempId
+          const existing = prev[selectedConversation.id] || [];
+          const updated = existing.map((msg) =>
+            msg.id === tempId
+              ? {
+                  id: createdPost.id,
+                  text: createdPost.content,
+                  sender: 'user',
+                  created_at: createdPost.created_at,
+                  userId: currentUser.id,
+                  isPending: false,
+                }
+              : msg
           );
           return {
             ...prev,
-            [selectedConversation.id]: [
-              ...filtered,
-              {
-                id: createdPost.id,
-                text: createdPost.content,
-                sender: 'user',
-              },
-            ],
+            [selectedConversation.id]: updated,
           };
         });
+
+        scrollToBottom();
+        onGroupUpdated?.();
       }
-      scrollToBottom();
     } catch (err) {
       console.error('Send message failed:', err);
     }
   };
 
-  const handleGroupsUpdated = (newGroups) => {
-    setGroups(newGroups);
-    // If the current group was deleted, clear the conversation
-    const stillExists = newGroups.find(g => g.id === selectedConversation?.id);
-    if (!stillExists) {
-      dispatch(setSelectedConversation(null));
+  const handleEdit = (msgId, msgText) => {
+    setEditingMessageId(msgId);
+    setEditContent(msgText);
+    setEditDialogOpen(true);
+    setAnchorEl(null);
+  };
+
+  const saveEditedMessage = async () => {
+    if (!editingMessageId || !editContent.trim() || !selectedConversation || !currentUser) return;
+
+    try {
+      const apiRes = await updatePost(editingMessageId, editContent.trim());
+
+      if (apiRes?.success && apiRes.post) {
+        const updatedPost = apiRes.post;
+
+        setMessagesByGroup((prev) => {
+          const updated = prev[selectedConversation.id].map((msg) =>
+            msg.id === editingMessageId
+              ? {
+                  ...msg,
+                  text: updatedPost.content,
+                  created_at: updatedPost.createdAt,
+                  isPending: false,
+                }
+              : msg
+          );
+          return { ...prev, [selectedConversation.id]: updated };
+        });
+
+        setEditDialogOpen(false);
+      } else {
+        console.error('Update failed:', apiRes?.error || 'Unknown error');
+      }
+    } catch (err) {
+      console.error('Failed to save edited message:', err);
     }
   };
+
 
   if (!selectedConversation) {
     return (
@@ -189,7 +285,10 @@ export const ChatWindow = ({ refreshKey = 0 }) => {
         key={selectedConversation?.id + drawerOpen}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        onGroupsUpdated={handleGroupsUpdated}
+        onGroupsUpdated={() => {
+          onGroupUpdated?.();
+          dispatch(setSelectedConversation(null));
+        }}
         groupId={selectedConversation?.id}
         initialGroupData={selectedConversation}
         onGroupNameChange={(newName) => {
@@ -209,53 +308,111 @@ export const ChatWindow = ({ refreshKey = 0 }) => {
           });
 
           let lastSenderId = null;
+          let lastDateLabel = null;
 
           return currentMessages.map((message, index) => {
             const isUser = message.sender === 'user';
             const showAvatarAndName = !isUser && message.userId !== lastSenderId;
             const sender = userMap[message.userId];
-            const timeString = new Date(message.created_at || Date.now()).toLocaleTimeString([], {
+            const timeString = new Date(message.created_at).toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
             });
+
+            const currentDateLabel = formatDateLabel(message.created_at);
+            const showDateSeparator = currentDateLabel !== lastDateLabel;
+            lastDateLabel = currentDateLabel;
 
             if (!isUser) {
               lastSenderId = message.userId;
             }
 
             return (
-              <MessageWrapper key={message.id || index} isUser={isUser}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: isUser ? 'flex-end' : 'flex-start',
-                    maxWidth: '100%',
-                  }}
-                >
-                  {showAvatarAndName && sender && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: '4px' }}>
-                      <Avatar
-                        src={sender.avatar || ''}
-                        alt={sender.username || ''}
-                        sx={{ width: 24, height: 24, mr: 1 }}
-                      />
-                      <Typography variant="caption" color="textSecondary">
-                        {sender.username || 'Người dùng'}
-                      </Typography>
-                    </Box>
-                  )}
+              <Box key={message.id || index} sx={{ width: '100%' }}>
+                {showDateSeparator && (
+                  <Typography
+                    variant="caption"
+                    align="center"
+                    sx={{
+                      display: 'block',
+                      textAlign: 'center',
+                      color: 'gray',
+                      my: 2,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {currentDateLabel}
+                  </Typography>
+                )}
 
-                  <MessageBubble isUser={isUser}>
-                    <Typography variant="body1">{message.text}</Typography>
-                  </MessageBubble>
+                <MessageWrapper isUser={isUser}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: isUser ? 'flex-end' : 'flex-start',
+                      maxWidth: '100%',
+                    }}
+                  >
+                    {showAvatarAndName && sender && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: '4px' }}>
+                        <Avatar
+                          src={sender.avatar || ''}
+                          alt={sender.username || ''}
+                          sx={{ width: 24, height: 24, mr: 1 }}
+                        />
+                        <Typography variant="caption" color="textSecondary">
+                          {sender.username || 'Người dùng'}
+                        </Typography>
+                      </Box>
+                    )}
 
-                  <HoverMeta className="hover-meta" isUser={isUser}>
-                    <Typography variant="caption">{timeString}</Typography>
-                    <MoreVertIcon fontSize="small" sx={{ cursor: 'pointer' }} />
-                  </HoverMeta>
-                </Box>
-              </MessageWrapper>
+                    <MessageBubble isUser={isUser}>
+                      <Typography variant="body1">{message.text}</Typography>
+                      {message.isPending && (
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{
+                            fontStyle: 'italic',
+                            fontSize: '0.75rem',
+                            mt: 0.5,
+                          }}
+                        >
+                          Đang gửi...
+                        </Typography>
+                      )}
+                    </MessageBubble>
+
+                    <HoverMeta className="hover-meta" isUser={isUser}>
+                      <Typography variant="caption">{timeString}</Typography>
+                      {message.userId === currentUser?.id && (
+                        <>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              setAnchorEl(e.currentTarget);
+                              setEditingMessageId(message.id);
+                              setEditContent(message.text);
+                            }}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                          <Menu
+                            open={Boolean(anchorEl) && editingMessageId === message.id}
+                            anchorEl={anchorEl}
+                            onClose={() => setAnchorEl(null)}
+                          >
+                            <MenuItem onClick={() => handleEdit(message.id, message.text)}>
+                              Edit
+                            </MenuItem>
+                          </Menu>
+                        </>
+                      )}
+                    </HoverMeta>
+                  </Box>
+                </MessageWrapper>
+              </Box>
             );
           });
         })()}
@@ -264,40 +421,92 @@ export const ChatWindow = ({ refreshKey = 0 }) => {
 
       <form onSubmit={handleSendMessage}>
         <InputContainer>
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2} alignItems="center">
             <TextField
               fullWidth
+              multiline
+              minRows={1}
+              maxRows={6}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Nhập tin nhắn..."
               variant="outlined"
-              size="small"
-            />
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              endIcon={<SendIcon />}
-              disableElevation
-              sx={{
-                textTransform: 'none',
-                borderRadius: '10px',
-                padding: '4px',
-                backgroundColor: 'transparent',
-                color: '#1976d2',
-                '&:hover': { backgroundColor: 'transparent' },
-                '&:active': { backgroundColor: 'transparent' },
-                '&.Mui-disabled': {
-                  backgroundColor: '#e0e0e0',
-                  color: '#9e9e9e',
-                  boxShadow: 'none',
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(e);
+                }
+              }}
+              inputProps={{
+                style: {
+                  padding: '6px 8px',          
+                  lineHeight: 1,
+                  alignItems: 'center',
                 },
               }}
-            >
-            </Button>
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  padding: 0,
+                },
+              }}
+            />
+
+
+            {inputFocused ? (
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                endIcon={<SendIcon />}
+                disableElevation
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: '10px',
+                  padding: '4px',
+                  backgroundColor: 'transparent',
+                  color: '#1976d2',
+                  '&:hover': { backgroundColor: 'transparent' },
+                  '&:active': { backgroundColor: 'transparent' },
+                  '&.Mui-disabled': {
+                    backgroundColor: '#e0e0e0',
+                    color: '#9e9e9e',
+                    boxShadow: 'none',
+                  },
+                }}
+              />
+            ) : (
+              <IconButton
+                onClick={() => handleSendMessage(null, '👍')}
+                sx={{ color: '#1976d2' }}
+              >
+                <ThumbUpAltOutlinedIcon />
+              </IconButton>
+            )}
           </Stack>
         </InputContainer>
       </form>
+
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)}>
+        <DialogTitle>Edit Message</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+          <Button onClick={saveEditedMessage} variant="contained">
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </MainContainer>
   );
 };

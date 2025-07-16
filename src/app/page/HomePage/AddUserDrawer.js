@@ -1,5 +1,3 @@
-// src/components/chat/AddUserDrawer.jsx
-
 import {
   Drawer,
   Box,
@@ -12,34 +10,75 @@ import {
   ListItemAvatar,
   Avatar,
   ListItemText,
-  Button
+  CircularProgress
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import { useState } from 'react';
-import { searchUsersByKeyword, addUserToGroupByUserId } from '../../service/remote-service/groupUser.service';
+import { useEffect, useState } from 'react';
+import { getAllUsers, addUserToGroupByUserId } from '../../service/remote-service/groupUser.service';
+import { LocalGroupUsers } from '../../service/local.service'; // ✅ Make sure this path is correct
 
 const AddUserDrawer = ({ open, onClose, groupId, onUserAdded }) => {
+  const [allUsers, setAllUsers] = useState([]);
+  const [groupUserIds, setGroupUserIds] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [addedUserIds, setAddedUserIds] = useState([]);
 
-  const handleSearch = async () => {
-    setLoading(true);
-    const res = await searchUsersByKeyword(searchTerm);
-    if (res.success) {
-      setSearchResults(res.users);
+  useEffect(() => {
+    if (open) {
+      loadData();
+      setSearchTerm('');
+      setAddedUserIds([]);
     }
+  }, [open]);
+
+  const loadData = async () => {
+    setLoading(true);
+
+    // 1. Fetch all users
+    const res = await getAllUsers();
+
+    // 2. Fetch current group users from local DB
+    const localGroupUsers = await LocalGroupUsers.getGroupUsersByGroupId(groupId);
+    const groupUsers = Array.isArray(localGroupUsers)
+      ? localGroupUsers
+      : localGroupUsers?.groupUsers || [];
+
+    const groupUserIdsSet = new Set(groupUsers.map((user) => user.user_id));
+
+    setGroupUserIds([...groupUserIdsSet]);
+
+    if (res.success) {
+      // 3. Filter out users already in group
+      const filtered = res.users.filter((user) => !groupUserIdsSet.has(user.id));
+      setAllUsers(filtered);
+    }
+
     setLoading(false);
   };
 
   const handleAddUser = async (userId) => {
+    if (addedUserIds.includes(userId)) return;
+
     const res = await addUserToGroupByUserId(groupId, userId);
     if (res.success) {
-      onUserAdded?.(); // trigger refresh
+      setAddedUserIds((prev) => [...prev, userId]);
+      onUserAdded?.();
+
+      // 🔁 Optionally update available users list after adding
+      setAllUsers((prev) => prev.filter((u) => u.id !== userId));
     }
   };
+
+  const filteredUsers = allUsers.filter((user) => {
+    const keyword = searchTerm.toLowerCase();
+    return (
+      user.username?.toLowerCase().includes(keyword) ||
+      user.fullName?.toLowerCase().includes(keyword)
+    );
+  });
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose}>
@@ -58,36 +97,54 @@ const AddUserDrawer = ({ open, onClose, groupId, onUserAdded }) => {
           size="small"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                <IconButton onClick={handleSearch}><SearchIcon /></IconButton>
+                <SearchIcon />
               </InputAdornment>
             ),
           }}
         />
 
         {/* Results */}
-        <List dense>
-          {searchResults.map((user) => (
-            <ListItem key={user.id} secondaryAction={
-              <IconButton onClick={() => handleAddUser(user.id)} edge="end" aria-label="add">
-                <PersonAddIcon />
-              </IconButton>
-            }>
-              <ListItemAvatar>
-                <Avatar>
-                  {(user.fullName || user.username || 'U').charAt(0).toUpperCase()}
-                </Avatar>
-              </ListItemAvatar>
-              <ListItemText
-                primary={user.fullName || user.username}
-                secondary={user.email}
-              />
-            </ListItem>
-          ))}
-        </List>
+        {loading ? (
+          <Box mt={2} textAlign="center">
+            <CircularProgress size={24} />
+          </Box>
+        ) : (
+          <List dense>
+            {filteredUsers.map((user) => (
+              <ListItem
+                key={user.id}
+                secondaryAction={
+                  <IconButton
+                    onClick={() => handleAddUser(user.id)}
+                    edge="end"
+                    aria-label="add"
+                    disabled={addedUserIds.includes(user.id)}
+                  >
+                    <PersonAddIcon color={addedUserIds.includes(user.id) ? "disabled" : "action"} />
+                  </IconButton>
+                }
+              >
+                <ListItemAvatar>
+                  <Avatar>{(user.username || 'U')[0].toUpperCase()}</Avatar>
+                </ListItemAvatar>
+                <ListItemText
+                  primary={user.username}
+                  secondary={user.fullName}
+                />
+              </ListItem>
+            ))}
+            {!filteredUsers.length && !loading && (
+              <Box p={2}>
+                <Typography variant="body2" color="textSecondary" align="center">
+                  Không tìm thấy người dùng nào phù hợp
+                </Typography>
+              </Box>
+            )}
+          </List>
+        )}
       </Box>
     </Drawer>
   );

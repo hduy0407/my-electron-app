@@ -50,7 +50,9 @@ const ConversationListStyle = styled(Box)`
   padding: 0 10px;
 `;
 
-const ConversationItemStyle = styled(Box)`
+const ConversationItemStyle = styled(Box).withConfig({
+  shouldForwardProp: (prop) => prop !== '$selected',
+})`
   padding: 14px 12px;
   border-bottom: 1px solid #ddd;
   cursor: pointer;
@@ -59,10 +61,15 @@ const ConversationItemStyle = styled(Box)`
   align-items: center;
   transition: background-color 0.2s ease;
 
+  /* Make background grey when selected */
+  background-color: ${({ $selected }) => ($selected ? '#f0f0f0' : 'transparent')} !important;
+
+  /* On hover, adjust background slightly for feedback */
   &:hover {
-    background-color: #eee;
+    background-color: ${({ $selected }) => ($selected ? '#e0e0e0' : '#f5f5f5')} !important;
   }
 `;
+
 
 const UserBoxStyle = styled(Box)`
   display: flex;

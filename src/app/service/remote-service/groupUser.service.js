@@ -167,3 +167,34 @@ export const deleteUserFromGroup = async (groupId, userId) => {
     };
   }
 };
+
+
+export const getAllUsers = async () => {
+  try {
+    const response = await axios.get(`${baseUrl}/api/users`, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    const users = response.data?.data?.users;
+
+    if (!Array.isArray(users)) {
+      return {
+        success: false,
+        error: 'Invalid user data received'
+      };
+    }
+
+    return {
+      success: true,
+      users
+    };
+  } catch (err) {
+    console.error("Error fetching all users:", err);
+    return {
+      success: false,
+      error: err.response?.data?.message || 'Failed to fetch users'
+    };
+  }
+};

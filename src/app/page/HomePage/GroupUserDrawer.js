@@ -11,26 +11,43 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Menu, 
+  Menu,
   MenuItem
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { LocalGroupUsers } from '../../service/local.service';
-import { deleteGroup } from '../../service/remote-service/group.service'; // Make sure this is defined in your API
-import { deleteUserFromGroup } from '../../service/remote-service/groupUser.service';
-import {fetchAndSaveGroups} from '../../service/remote-service/group.service'
+import {
+  deleteGroup,
+  fetchAndSaveGroups
+} from '../../service/remote-service/group.service';
+import {
+  deleteUserFromGroup,
+  fetchAndSaveGroupUsers
+} from '../../service/remote-service/groupUser.service';
+
 import EditGroupNameDrawer from './EditGroupNameDrawer';
 import AddUserDrawer from './AddUserDrawer';
+
 import {
   DrawerContent,
   GroupHeader,
   UserListItem
 } from './style/GroupUserDrawerStyle';
+
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import { useDispatch } from 'react-redux';
+import { setSelectedConversation } from '../../redux/conversationSlice';
 
-const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNameChange, onGroupsUpdated }) => {
+const GroupUsersDrawers = ({
+  open,
+  onClose,
+  groupId,
+  initialGroupData,
+  onGroupNameChange,
+  onGroupsUpdated
+}) => {
   const [groupUsers, setGroupUsers] = useState([]);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [addUserOpen, setAddUserOpen] = useState(false);
@@ -39,23 +56,29 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
 
+  const dispatch = useDispatch();
+
   useEffect(() => {
-    const fetchLocalUsers = async () => {
+    const fetchUsers = async () => {
+      if (!groupId) return;
+
+      await fetchAndSaveGroupUsers(groupId); // Sync latest
+
       const groupUserList = await LocalGroupUsers.getGroupUsersByGroupId(groupId);
-      const users = Array.isArray(groupUserList) ? groupUserList : groupUserList?.groupUsers || [];
+      const users = Array.isArray(groupUserList)
+        ? groupUserList
+        : groupUserList?.groupUsers || [];
       setGroupUsers(users);
 
       const currentUserEmail = localStorage.getItem("currentUserEmail");
       const matched = users.find(
         u => u.email?.toLowerCase() === currentUserEmail?.toLowerCase()
       );
-
-      const isAdmin = matched?.role === 'admin';
-      setIsAdmin(isAdmin);
+      setIsAdmin(matched?.role === 'admin');
     };
 
     if (open && groupId) {
-      fetchLocalUsers();
+      fetchUsers();
     }
   }, [open, groupId]);
 
@@ -66,9 +89,14 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
   const handleDeleteConfirm = async () => {
     const result = await deleteGroup(groupId);
     if (result.success) {
+      const sync = await fetchAndSaveGroups();
+
+      // ✅ Only clear selection when group is deleted
+      dispatch(setSelectedConversation(null));
+
+      onGroupsUpdated?.(sync.groups || []);
       setDeleteDialogOpen(false);
-      onClose(); // Close the drawer
-      alert('Nhóm đã được xóa.');
+      onClose();
     } else {
       alert(result.error || 'Không thể xóa nhóm.');
     }
@@ -90,16 +118,15 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
     try {
       const res = await deleteUserFromGroup(groupId, selectedUser.user_id);
       if (res.success) {
-        // Refetch all groups and update local DB
-        const refresh = await fetchAndSaveGroups();
-        if (!refresh.success) {
-          console.warn('Refetching groups failed:', refresh.error);
-        }
+        await fetchAndSaveGroupUsers(groupId);
+        const groupUserList = await LocalGroupUsers.getGroupUsersByGroupId(groupId);
+        const users = Array.isArray(groupUserList)
+          ? groupUserList
+          : groupUserList?.groupUsers || [];
+        setGroupUsers(users);
 
-        // Optional: notify parent component to update its group list
-        if (typeof onGroupsUpdated === 'function') {
-          onGroupsUpdated(refresh.groups || []);
-        }
+        // ✅ DO NOT clear selected group or call onGroupsUpdated
+        // Group is still valid
       } else {
         alert(res.error || 'Xóa thành viên thất bại');
       }
@@ -116,7 +143,7 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
 
   return (
     <>
-      <Drawer anchor="right" open={open} onClose={onClose}>
+      <Drawer anchor="right" open={open} onClose={onClose} ModalProps={{ keepMounted: false }}>
         <DrawerContent>
           <GroupHeader onClick={() => setEditDrawerOpen(true)}>
             <Avatar
@@ -129,7 +156,6 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
             <Typography variant="h6">{groupName}</Typography>
           </GroupHeader>
 
-          {/* Group Member Header */}
           <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
             <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
               Thành viên ({groupUsers.length})
@@ -145,7 +171,6 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
             )}
           </Box>
 
-          {/* User List */}
           {Array.isArray(groupUsers) && groupUsers.length > 0 ? (
             <List>
               {groupUsers.map((user) => (
@@ -160,11 +185,11 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
                   }}
                 >
                   <Avatar sx={{ width: 32, height: 32, mr: 1 }}>
-                    {(user.full_name || user.username || 'U')?.charAt(0).toUpperCase()}
+                    {(user.username || 'U')?.charAt(0).toUpperCase()}
                   </Avatar>
                   <Box flex="1">
                     <Typography variant="subtitle2">
-                      {user.full_name || user.username || user.user_id}
+                      { user.username || user.user_id}
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
                       Role: {user.role}
@@ -206,7 +231,6 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
             </Typography>
           )}
 
-          {/* Delete Button (only for admin) */}
           {isAdmin && (
             <Box mt={3}>
               <Button
@@ -223,7 +247,6 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
         </DrawerContent>
       </Drawer>
 
-      {/* Edit Group Name Drawer */}
       <EditGroupNameDrawer
         open={editDrawerOpen}
         onClose={() => setEditDrawerOpen(false)}
@@ -232,21 +255,18 @@ const GroupUsersDrawers = ({ open, onClose, groupId, initialGroupData, onGroupNa
         onGroupNameChange={handleGroupNameChange}
       />
 
-      {/* Add User Drawer */}
       <AddUserDrawer
         open={addUserOpen}
         onClose={() => setAddUserOpen(false)}
         groupId={groupId}
-        onUserAdded={() => {
+        onUserAdded={async () => {
           setAddUserOpen(false);
-          LocalGroupUsers.getGroupUsersByGroupId(groupId).then((res) => {
-            const users = Array.isArray(res) ? res : res?.groupUsers || [];
-            setGroupUsers(users);
-          });
+          const sync = await fetchAndSaveGroupUsers(groupId);
+          const users = sync?.groupUsers || [];
+          setGroupUsers(users);
         }}
       />
 
-      {/* Confirm Delete Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={() => setDeleteDialogOpen(false)}

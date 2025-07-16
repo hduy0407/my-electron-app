@@ -174,6 +174,13 @@ export const LocalPosts = {
             return await dbPosts.clearAllPosts();
         }
         return { success: false, error: 'clearAllPosts not available' };
+    },
+    updatePostContent: async (postId, updatedData) => {
+        const dbPosts = getLocalDatabasePosts();
+        if (dbPosts && typeof dbPosts.updatePostContent === 'function') {
+            return await dbPosts.updatePostContent(postId, updatedData);
+        }
+        return { success: false, error: 'updatePostContent not available' };
     }
 };
 

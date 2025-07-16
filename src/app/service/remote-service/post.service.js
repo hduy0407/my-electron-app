@@ -50,7 +50,6 @@ export const requestPost = async () => {
 };
 
 
-
 export const createPost = async (postData) => {
   try {
     const response = await axios.post(apiUrl, postData, {
@@ -61,7 +60,7 @@ export const createPost = async (postData) => {
       }
     });
 
-    const post = response.data?.data; 
+    const post = response.data?.data;
 
     if (!post) {
       return {
@@ -72,14 +71,14 @@ export const createPost = async (postData) => {
 
     return {
       success: true,
-      /*post: {
+      post: {
         id: post.id,
         user_id: post.userId,
         group_id: post.groupId,
         content: post.content,
         title: post.title,
         created_at: post.createdAt
-      }*/
+      }
     };
 
   } catch (error) {
@@ -87,6 +86,52 @@ export const createPost = async (postData) => {
     return {
       success: false,
       error: error.response?.data?.message || error.message || "Failed to create post"
+    };
+  }
+};
+
+export const updatePost = async (postId, updatedContent) => {
+  try {
+    const response = await axios.put(`${apiUrl}/${postId}`, {
+      title: 'Convo',
+      content: updatedContent
+    }, {
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("token")}`
+      }
+    });
+
+    const updatedPost = response.data?.data;
+
+    if (!updatedPost) {
+      return {
+        success: false,
+        error: "No updated post returned from server"
+      };
+    }
+
+    // Save to local DB
+    await LocalPosts.savePost({
+      id: updatedPost.id,
+      user_id: updatedPost.userId,
+      group_id: updatedPost.groupId,
+      content: updatedPost.content,
+      title: updatedPost.title,
+      created_at: updatedPost.createdAt
+    });
+
+    return {
+      success: true,
+      post: updatedPost
+    };
+
+  } catch (error) {
+    console.error("updatePost error:", error);
+    return {
+      success: false,
+      error: error.response?.data?.message || error.message || "Failed to update post"
     };
   }
 };
